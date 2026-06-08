@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  buyer
+  supplier
+  finance
+  finance_director
+  ceo
+  admin
+}
+
+enum PurchaseRequirementStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  inquiry_sent
+  quoting
+  quoted
+  order_created
+}
+
+enum SupplierStatus {
+  pending
+  active
+  inactive
+  blacklisted
+}
+
+enum PerformanceLevel {
+  excellent
+  good
+  average
+  poor
+}
+
+enum InquiryStatus {
+  draft
+  sent
+  quoting
+  quoted
+  completed
+  cancelled
+}
+
+enum QuoteStatus {
+  draft
+  submitted
+  selected
+  rejected
+}
+
+enum PurchaseOrderStatus {
+  draft
+  confirmed
+  processing
+  shipped
+  delivered
+  completed
+  cancelled
+}
+
+enum LogisticsStatus {
+  pending
+  picked
+  in_transit
+  delivered
+  signed
+}
+
+enum ReceiptStatus {
+  pending
+  inspecting
+  accepted
+  rejected
+  partial
+}
+
+enum PaymentStatus {
+  pending
+  approved
+  paid
+  rejected
+  processing
+}
+
+enum PaymentType {
+  advance
+  progress
+  final
+  deposit
+}
+
+enum ApprovalFlowType {
+  purchase_approval
+  payment_approval
+  supplier_approval
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum AlertLevel {
+  info
+  warning
+  error
+  critical
+}
+
+enum AlertType {
+  order_delay
+  payment_overdue
+  supplier_risk
+  inventory_shortage
+  approval_timeout
+  quality_issue
+}
+
+model User {
+  id         String   @id @default(uuid())
+  username   String   @unique
+  realName   String
+  role       UserRole
+  email      String
+  phone      String
+  password   String
+  department String?
+  supplierId String?
+  createdAt  DateTime @default(now())
+
+  logs           OperationLog[]
+  approvals      ApprovalNode[]
+  requirements   PurchaseRequirement[] @relation("Requester")
+  createdOrders  PurchaseOrder[]      @relation("OrderCreator")
+  receivedReceipts Receipt[]          @relation("Receiver")
+}
+
+model Category {
+  id       String     @id @default(uuid())
+  name     String
+  code     String     @unique
+  parentId String?
+  level    Int
+  children Category[] @relation("CategoryParent")
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+
+  requirements PurchaseRequirement[]
+  suppliers    Supplier[]
+  inquiries    Inquiry[]
+  orders       PurchaseOrder[]
+
+  @@index([parentId])
+  @@index([level])
+}
+
+model PurchaseRequirement {
+  id              String                      @id @default(uuid())
+  requirementNo   String                      @unique
+  title           String
+  categoryId      String
+  category        Category                    @relation(fields: [categoryId], references: [id])
+  itemName        String
+  specification   String
+  quantity        Int
+  unit            String
+  budget          Decimal                     @db.Decimal(18, 4)
+  expectedDate    DateTime
+  description     String?
+  requesterId     String
+  requester       User                        @relation("Requester", fields: [requesterId], references: [id])
+  status          PurchaseRequirementStatus   @default(draft)
+  approvalFlowId  String?
+  approvalFlow    ApprovalFlow?               @relation(fields: [approvalFlowId], references: [id])
+  inquiryId       String?
+  inquiry         Inquiry?                    @relation(fields: [inquiryId], references: [id])
+  orderId         String?
+  order           PurchaseOrder?              @relation(fields: [orderId], references: [id])
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([requesterId])
+  @@index([expectedDate])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id                String           @id @default(uuid())
+  supplierNo        String           @unique
+  name              String
+  shortName         String
+  categoryId        String
+  category          Category         @relation(fields: [categoryId], references: [id])
+  contactName       String
+  contactPhone      String
+  contactEmail      String
+  address           String
+  businessLicense   String?
+  taxNumber         String?
+  bankName          String?
+  bankAccount       String?
+  status            SupplierStatus   @default(pending)
+  creditRating      Int              @default(0)
+  performanceScore  Decimal          @db.Decimal(10, 2) @default(0)
+  performanceLevel  PerformanceLevel @default(average)
+  totalOrders       Int              @default(0)
+  totalAmount       Decimal          @db.Decimal(18, 4) @default(0)
+  onTimeDeliveryRate Decimal         @db.Decimal(10, 6) @default(0)
+  qualityPassRate   Decimal          @db.Decimal(10, 6) @default(0)
+  satisfactionScore Decimal          @db.Decimal(10, 2) @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  users        User[]
+  inquiries    Inquiry[]  @relation("InquirySuppliers")
+  quotes       Quote[]
+  orders       PurchaseOrder[]
+  payments     Payment[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([performanceLevel])
+  @@index([createdAt])
+}
+
+model Inquiry {
+  id             String           @id @default(uuid())
+  inquiryNo      String           @unique
+  requirementId  String           @unique
+  requirement    PurchaseRequirement @relation(fields: [requirementId], references: [id])
+  title          String
+  categoryId     String
+  category       Category         @relation(fields: [categoryId], references: [id])
+  itemName       String
+  specification  String
+  quantity       Int
+  unit           String
+  description    String?
+  deadline       DateTime
+  status         InquiryStatus    @default(draft)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  suppliers      Supplier[]       @relation("InquirySuppliers")
+  quotes         Quote[]
+  comparisonReport ComparisonReport?
+  orderId        String?
+  order          PurchaseOrder?   @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([deadline])
+  @@index([createdAt])
+}
+
+model Quote {
+  id             String         @id @default(uuid())
+  quoteNo        String         @unique
+  inquiryId      String
+  inquiry        Inquiry        @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  unitPrice      Decimal        @db.Decimal(18, 4)
+  totalPrice     Decimal        @db.Decimal(18, 4)
+  currency       String         @default("CNY")
+  deliveryDate   DateTime
+  deliveryAddress String
+  paymentTerms   String
+  warranty       String?
+  remarks        String?
+  status         QuoteStatus    @default(draft)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([inquiryId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ComparisonReport {
+  id                    String   @id @default(uuid())
+  reportNo              String   @unique
+  inquiryId             String   @unique
+  inquiry               Inquiry  @relation(fields: [inquiryId], references: [id])
+  requirementId         String
+  requirement           PurchaseRequirement @relation(fields: [requirementId], references: [id])
+  quotes                Json
+  recommendedSupplierId String?
+  recommendationReason  String?
+  createdById           String
+  createdAt             DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id             String              @id @default(uuid())
+  orderNo        String              @unique
+  requirementId  String              @unique
+  requirement    PurchaseRequirement @relation(fields: [requirementId], references: [id])
+  inquiryId      String?
+  inquiry        Inquiry?            @relation(fields: [inquiryId], references: [id])
+  supplierId     String
+  supplier       Supplier            @relation(fields: [supplierId], references: [id])
+  itemName       String
+  specification  String
+  quantity       Int
+  unit           String
+  unitPrice      Decimal             @db.Decimal(18, 4)
+  totalAmount    Decimal             @db.Decimal(18, 4)
+  currency       String              @default("CNY")
+  deliveryDate   DateTime
+  deliveryAddress String
+  paymentTerms   String
+  status         PurchaseOrderStatus @default(draft)
+  logisticsStatus LogisticsStatus    @default(pending)
+  trackingNumber String?
+  shippingCompany String?
+  approvalFlowId String?
+  approvalFlow   ApprovalFlow?       @relation(fields: [approvalFlowId], references: [id])
+  receiptId      String?
+  receipt        Receipt?            @relation(fields: [receiptId], references: [id])
+  paymentId      String?
+  payment        Payment?            @relation(fields: [paymentId], references: [id])
+  createdById    String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status])
+  @@index([supplierId])
+  @@index([deliveryDate])
+  @@index([createdAt])
+}
+
+model Receipt {
+  id                 String        @id @default(uuid())
+  receiptNo          String        @unique
+  orderId            String        @unique
+  order              PurchaseOrder @relation(fields: [orderId], references: [id])
+  receivedQuantity   Int
+  acceptedQuantity   Int
+  rejectedQuantity   Int
+  inspectionReport   String?
+  status             ReceiptStatus @default(pending)
+  receivedById       String
+  receivedBy         User          @relation("Receiver", fields: [receivedById], references: [id])
+  receivedAt         DateTime
+  createdAt          DateTime      @default(now())
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  paymentNo      String        @unique
+  orderId        String        @unique
+  order          PurchaseOrder @relation(fields: [orderId], references: [id])
+  amount         Decimal       @db.Decimal(18, 4)
+  currency       String        @default("CNY")
+  paymentType    PaymentType
+  dueDate        DateTime
+  actualPaidDate DateTime?
+  status         PaymentStatus @default(pending)
+  approvalFlowId String?
+  approvalFlow   ApprovalFlow? @relation(fields: [approvalFlowId], references: [id])
+  approvalLevel  Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  supplierId     String?
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdAt])
+}
+
+model ApprovalFlow {
+  id         String           @id @default(uuid())
+  type       ApprovalFlowType
+  status     ApprovalStatus   @default(pending)
+  currentNode Int             @default(0)
+  relatedId  String
+  relatedType String
+  nodes      ApprovalNode[]
+  createdAt  DateTime         @default(now())
+
+  requirements PurchaseRequirement[]
+  orders       PurchaseOrder[]
+  payments     Payment[]
+}
+
+model ApprovalNode {
+  id            String         @id @default(uuid())
+  flowId        String
+  flow          ApprovalFlow   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  level         Int
+  approverRole  String
+  approverId    String?
+  approver      User?          @relation(fields: [approverId], references: [id])
+  status        ApprovalStatus @default(pending)
+  comment       String?
+  approvedAt    DateTime?
+}
+
+model OperationLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  module     String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([module])
+  @@index([action])
+}
+
+model SystemAlert {
+  id        String     @id @default(uuid())
+  type      AlertType
+  level     AlertLevel
+  title     String
+  content   String
+  relatedId String?
+  status    String     @default("unread")
+  createdAt DateTime   @default(now())
+}
+
+model MonthlyReport {
+  id                     String   @id @default(uuid())
+  yearMonth              String   @unique
+  purchaseByCategory     Json
+  supplierRanking        Json
+  paymentTimeliness      Json
+  satisfactionScores     Json
+  performanceMetrics     Json
+  createdAt              DateTime @default(now())
+}
