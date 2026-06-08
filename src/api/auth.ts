@@ -14,7 +14,11 @@ export interface LoginResponse {
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   try {
-    return await post<LoginResponse>('/auth/login', data);
+    const response = await post<LoginResponse>('/auth/login', data);
+    if (response.token) {
+      setToken(response.token);
+    }
+    return response;
   } catch {
     const user = mockUsers.find(u => u.username === data.username);
     if (user) {

@@ -137,15 +137,37 @@ export const notifyApprovalRequest = async (
   return sendAlertNotification('warning', title, content)
 }
 
-export const notifyReconciliationAlert = async (
-  diffCount: number,
-  diffAmount: number,
-  date: string,
+export const notifyOrderDelay = async (
+  orderNo: string,
+  supplierName: string,
+  delayDays: number,
 ): Promise<NotificationResult[]> => {
-  const title = '对账异常警报'
-  const content = `${date} 对账发现 ${diffCount} 笔差异，差异金额: ¥${diffAmount.toLocaleString()}，请及时处理。`
+  const title = '订单延迟警报'
+  const content = `订单 ${orderNo}（供应商: ${supplierName}）预计延迟 ${delayDays} 天到货，请及时跟进。`
+
+  return sendAlertNotification('warning', title, content)
+}
+
+export const notifyPaymentOverdue = async (
+  paymentNo: string,
+  amount: number,
+  overdueDays: number,
+): Promise<NotificationResult[]> => {
+  const title = '款项逾期警报'
+  const content = `付款单 ${paymentNo}（金额: ¥${amount.toLocaleString()}）已逾期 ${overdueDays} 天，请尽快处理。`
 
   return sendAlertNotification('error', title, content)
+}
+
+export const notifySupplierRisk = async (
+  supplierName: string,
+  riskType: string,
+  riskLevel: string,
+): Promise<NotificationResult[]> => {
+  const title = '供应商风险警报'
+  const content = `供应商 ${supplierName} 存在 ${riskType} 风险（风险等级: ${riskLevel}），请关注。`
+
+  return sendAlertNotification('warning', title, content)
 }
 
 export default {
@@ -153,5 +175,7 @@ export default {
   sendAlertNotification,
   notifyTaskComplete,
   notifyApprovalRequest,
-  notifyReconciliationAlert,
+  notifyOrderDelay,
+  notifyPaymentOverdue,
+  notifySupplierRisk,
 }

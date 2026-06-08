@@ -59,7 +59,7 @@ export const loginRateLimit = rateLimit({
 
 export const apiRateLimit = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 100,
+  max: 300,
   keyPrefix: 'rate_limit:api',
 })
 

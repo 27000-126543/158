@@ -14,13 +14,13 @@ import { logger } from './utils/logger.js'
 import { initScheduler } from './scheduler.js'
 
 import authRoutes from './routes/auth.js'
-import revenueRoutes from './routes/revenue.js'
-import splitRulesRoutes from './routes/splitRules.js'
-import settlementsRoutes from './routes/settlements.js'
-import reconciliationRoutes from './routes/reconciliation.js'
-import reportsRoutes from './routes/reports.js'
+import { dashboardRouter, monthlyReportsRouter } from './routes/reports.js'
 import approvalsRoutes from './routes/approvals.js'
 import systemRoutes from './routes/system.js'
+import purchasesRoutes from './routes/purchases.js'
+import suppliersRoutes from './routes/suppliers.js'
+import inquiriesRoutes from './routes/inquiries.js'
+import ordersRoutes from './routes/orders.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -37,13 +37,14 @@ app.use(requestLogger)
 app.use(apiRateLimit)
 
 app.use('/api/auth', authRoutes)
-app.use('/api/revenue', revenueRoutes)
-app.use('/api/split-rules', splitRulesRoutes)
-app.use('/api/settlements', settlementsRoutes)
-app.use('/api/reconciliation', reconciliationRoutes)
-app.use('/api/reports', reportsRoutes)
+app.use('/api/dashboard', dashboardRouter)
+app.use('/api/monthly-reports', monthlyReportsRouter)
 app.use('/api/approvals', approvalsRoutes)
 app.use('/api/system', systemRoutes)
+app.use('/api/purchases', purchasesRoutes)
+app.use('/api/suppliers', suppliersRoutes)
+app.use('/api/inquiries', inquiriesRoutes)
+app.use('/api', ordersRoutes)
 
 app.use(
   '/api/health',

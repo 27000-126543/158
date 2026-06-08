@@ -136,6 +136,7 @@ model User {
   password   String
   department String?
   supplierId String?
+  supplier   Supplier?               @relation(fields: [supplierId], references: [id])
   createdAt  DateTime @default(now())
 
   logs           OperationLog[]
@@ -181,10 +182,9 @@ model PurchaseRequirement {
   status          PurchaseRequirementStatus   @default(draft)
   approvalFlowId  String?
   approvalFlow    ApprovalFlow?               @relation(fields: [approvalFlowId], references: [id])
-  inquiryId       String?
-  inquiry         Inquiry?                    @relation(fields: [inquiryId], references: [id])
-  orderId         String?
-  order           PurchaseOrder?              @relation(fields: [orderId], references: [id])
+  inquiry         Inquiry?
+  order           PurchaseOrder?
+  comparisonReports ComparisonReport[]
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
@@ -256,8 +256,7 @@ model Inquiry {
   suppliers      Supplier[]       @relation("InquirySuppliers")
   quotes         Quote[]
   comparisonReport ComparisonReport?
-  orderId        String?
-  order          PurchaseOrder?   @relation(fields: [orderId], references: [id])
+  order          PurchaseOrder?
 
   @@index([status])
   @@index([categoryId])
@@ -309,10 +308,12 @@ model PurchaseOrder {
   orderNo        String              @unique
   requirementId  String              @unique
   requirement    PurchaseRequirement @relation(fields: [requirementId], references: [id])
-  inquiryId      String?
+  inquiryId      String?             @unique
   inquiry        Inquiry?            @relation(fields: [inquiryId], references: [id])
   supplierId     String
   supplier       Supplier            @relation(fields: [supplierId], references: [id])
+  categoryId     String
+  category       Category            @relation(fields: [categoryId], references: [id])
   itemName       String
   specification  String
   quantity       Int
@@ -329,11 +330,10 @@ model PurchaseOrder {
   shippingCompany String?
   approvalFlowId String?
   approvalFlow   ApprovalFlow?       @relation(fields: [approvalFlowId], references: [id])
-  receiptId      String?
-  receipt        Receipt?            @relation(fields: [receiptId], references: [id])
-  paymentId      String?
-  payment        Payment?            @relation(fields: [paymentId], references: [id])
+  receipt        Receipt?
+  payment        Payment?
   createdById    String
+  createdBy      User                @relation("OrderCreator", fields: [createdById], references: [id])
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 

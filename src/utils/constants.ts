@@ -21,14 +21,12 @@ import type {
 } from '@shared/types';
 
 export const CATEGORIES = [
-  { value: 'office_supplies', label: '办公用品', code: 'OS' },
-  { value: 'it_equipment', label: 'IT设备', code: 'IT' },
-  { value: 'raw_materials', label: '原材料', code: 'RM' },
-  { value: 'packaging', label: '包装材料', code: 'PK' },
-  { value: 'marketing', label: '市场营销', code: 'MK' },
-  { value: 'services', label: '服务采购', code: 'SV' },
-  { value: 'furniture', label: '办公家具', code: 'FN' },
-  { value: 'software', label: '软件服务', code: 'SW' },
+  { value: 'ELEC', label: '电子设备', code: 'ELEC' },
+  { value: 'OFFICE', label: '办公设备', code: 'OFFICE' },
+  { value: 'MATERIAL', label: '原材料', code: 'MATERIAL' },
+  { value: 'PACKAGE', label: '包装材料', code: 'PACKAGE' },
+  { value: 'SOFTWARE', label: '软件服务', code: 'SOFTWARE' },
+  { value: 'SUPPLIES', label: '办公耗材', code: 'SUPPLIES' },
 ] as const;
 
 export const UNITS = [

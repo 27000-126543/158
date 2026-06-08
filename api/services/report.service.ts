@@ -1,377 +1,772 @@
-import { PrismaClient } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
+import prisma from '../utils/prisma.js';
+import { decimalToNumber, transformMonthlyReport } from '../utils/transform.js';
+import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import type {
+  DashboardStats,
   MonthlyReport,
-  RevenueRecord,
-  SplitDetail,
-  Settlement,
-  ReconciliationDiff,
+  ApiResponse,
+  PaginatedResponse,
 } from '@shared/types';
 
-const prisma = new PrismaClient();
-
-function decimalToNumber(value: any): number {
-  if (value instanceof Decimal || typeof value?.toNumber === 'function') {
-    return value.toNumber();
-  }
-  return Number(value) || 0;
+interface DashboardStatsParams {
+  startDate?: Date;
+  endDate?: Date;
+  category?: string;
 }
 
-export interface RevenueTrendData {
-  date: string;
+interface DashboardChartsParams {
+  startDate?: Date;
+  endDate?: Date;
+  category?: string;
+  trendType?: 'monthly' | 'weekly';
+}
+
+interface PurchaseTrendItem {
+  period: string;
   amount: number;
+  orderCount: number;
 }
 
-export interface BusinessLineRevenue {
-  [businessLine: string]: number;
+interface CategoryPurchaseItem {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  percentage: number;
 }
 
-export interface SplitRatioData {
-  [businessLine: string]: {
-    [recipient: string]: number;
+interface SupplierPerformanceItem {
+  supplierId: string;
+  supplierName: string;
+  totalAmount: number;
+  orderCount: number;
+  onTimeDeliveryRate: number;
+  qualityPassRate: number;
+  satisfactionScore: number;
+}
+
+interface PaymentTimelinessItem {
+  period: string;
+  averagePaymentDays: number;
+  onTimePaymentRate: number;
+  totalPayments: number;
+}
+
+export interface DashboardStatsResult {
+  purchaseAmount: {
+    month: number;
+    cumulative: number;
   };
-}
-
-export interface ReportMetrics {
-  settlementAccuracy: number;
-  noDiffRate: number;
-  totalRevenue: number;
-  matchedCount: number;
-  totalCount: number;
-  resolvedDiffCount: number;
-  totalDiffCount: number;
-}
-
-export async function calculateRevenueTrend(
-  year: number,
-  month: number
-): Promise<RevenueTrendData[]> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const revenues = await prisma.revenueRecord.findMany({
-    where: {
-      transactionTime: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-    orderBy: { transactionTime: 'asc' },
-  });
-
-  const dailyRevenue: Map<string, number> = new Map();
-
-  for (const revenue of revenues) {
-    const dateStr = dayjs(revenue.transactionTime).format('YYYY-MM-DD');
-    const amount = decimalToNumber(revenue.amount);
-    dailyRevenue.set(dateStr, (dailyRevenue.get(dateStr) || 0) + amount);
-  }
-
-  const trend: RevenueTrendData[] = [];
-  const daysInMonth = dayjs(startDate).daysInMonth();
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = dayjs(`${year}-${month}-${day}`).format('YYYY-MM-DD');
-    trend.push({
-      date: dateStr,
-      amount: dailyRevenue.get(dateStr) || 0,
-    });
-  }
-
-  return trend;
-}
-
-export async function calculateRevenueByBusinessLine(
-  year: number,
-  month: number
-): Promise<BusinessLineRevenue> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const result = await prisma.revenueRecord.groupBy({
-    by: ['businessLine'],
-    _sum: {
-      amount: true,
-    },
-    where: {
-      transactionTime: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-  });
-
-  const revenueByBusinessLine: BusinessLineRevenue = {};
-  for (const item of result) {
-    revenueByBusinessLine[item.businessLine] = decimalToNumber(item._sum.amount);
-  }
-
-  return revenueByBusinessLine;
-}
-
-export async function calculateSplitRatioByBusinessLine(
-  year: number,
-  month: number
-): Promise<SplitRatioData> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const splitDetails = await prisma.splitDetail.findMany({
-    include: {
-      revenue: true,
-    },
-    where: {
-      revenue: {
-        transactionTime: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    },
-  });
-
-  const businessLineTotals: Map<string, number> = new Map();
-  const businessLineSplits: Map<string, Map<string, number>> = new Map();
-
-  for (const detail of splitDetails) {
-    const businessLine = detail.businessLine;
-    const amount = decimalToNumber(detail.amount);
-
-    businessLineTotals.set(
-      businessLine,
-      (businessLineTotals.get(businessLine) || 0) + amount
-    );
-
-    if (!businessLineSplits.has(businessLine)) {
-      businessLineSplits.set(businessLine, new Map<string, number>());
-    }
-    const splits = businessLineSplits.get(businessLine)!;
-    splits.set(detail.businessLine, (splits.get(detail.businessLine) || 0) + amount);
-  }
-
-  const result: SplitRatioData = {};
-  for (const [businessLine, total] of businessLineTotals) {
-    result[businessLine] = {};
-    const splits = businessLineSplits.get(businessLine)!;
-    for (const [recipient, amount] of splits) {
-      result[businessLine][recipient] = total > 0 ? amount / total : 0;
-    }
-  }
-
-  return result;
-}
-
-export async function calculateSettlementAccuracy(
-  year: number,
-  month: number
-): Promise<number> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const settlements = await prisma.settlement.findMany({
-    where: {
-      settlementDate: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-  });
-
-  if (settlements.length === 0) return 1;
-
-  const totalAmount = settlements.reduce(
-    (sum, s) => sum + decimalToNumber(s.totalAmount),
-    0
-  );
-
-  const accurateSettlements = settlements.filter((s) => !s.overBudget);
-  const accurateAmount = accurateSettlements.reduce(
-    (sum, s) => sum + decimalToNumber(s.totalAmount),
-    0
-  );
-
-  return totalAmount > 0 ? accurateAmount / totalAmount : 1;
-}
-
-export async function calculateNoDiffRate(
-  year: number,
-  month: number
-): Promise<number> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const revenues = await prisma.revenueRecord.findMany({
-    where: {
-      transactionTime: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-  });
-
-  if (revenues.length === 0) return 1;
-
-  const matchedRevenues = revenues.filter(
-    (r) => r.reconciliationStatus === 'matched'
-  );
-
-  return matchedRevenues.length / revenues.length;
-}
-
-export async function calculateReportMetrics(
-  year: number,
-  month: number
-): Promise<ReportMetrics> {
-  const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-  const endDate = dayjs(startDate).endOf('month').toDate();
-
-  const [revenues, diffs, settlementAccuracy, noDiffRate] = await Promise.all([
-    prisma.revenueRecord.findMany({
-      where: {
-        transactionTime: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    }),
-    prisma.reconciliationDiff.findMany({
-      where: {
-        reconciliationDate: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    }),
-    calculateSettlementAccuracy(year, month),
-    calculateNoDiffRate(year, month),
-  ]);
-
-  const totalRevenue = revenues.reduce(
-    (sum, r) => sum + decimalToNumber(r.amount),
-    0
-  );
-  const matchedCount = revenues.filter(
-    (r) => r.reconciliationStatus === 'matched'
-  ).length;
-  const resolvedDiffCount = diffs.filter((d) => d.status === 'resolved').length;
-
-  return {
-    settlementAccuracy,
-    noDiffRate,
-    totalRevenue,
-    matchedCount,
-    totalCount: revenues.length,
-    resolvedDiffCount,
-    totalDiffCount: diffs.length,
+  orderCount: {
+    month: number;
+    cumulative: number;
   };
-}
-
-export async function generateMonthlyReport(
-  year: number,
-  month: number
-): Promise<MonthlyReport> {
-  const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
-
-  const existingReport = await prisma.monthlyReport.findUnique({
-    where: { yearMonth },
-  });
-
-  if (existingReport) {
-    return existingReport as unknown as MonthlyReport;
-  }
-
-  const [
-    revenueByBusinessLine,
-    splitRatioByBusinessLine,
-    revenueTrend,
-    metrics,
-  ] = await Promise.all([
-    calculateRevenueByBusinessLine(year, month),
-    calculateSplitRatioByBusinessLine(year, month),
-    calculateRevenueTrend(year, month),
-    calculateReportMetrics(year, month),
-  ]);
-
-  const report = await prisma.monthlyReport.create({
-    data: {
-      id: uuidv4(),
-      yearMonth,
-      revenueByBusinessLine,
-      splitRatioByBusinessLine,
-      settlementAccuracy: new Decimal(metrics.settlementAccuracy),
-      noDiffRate: new Decimal(metrics.noDiffRate),
-      revenueTrend,
-    },
-  });
-
-  return report as unknown as MonthlyReport;
-}
-
-export async function getMonthlyReport(
-  year: number,
-  month: number
-): Promise<MonthlyReport | null> {
-  const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
-  const report = await prisma.monthlyReport.findUnique({
-    where: { yearMonth },
-  });
-  return report as unknown as MonthlyReport | null;
-}
-
-export async function getReportComparison(
-  startYear: number,
-  startMonth: number,
-  endYear: number,
-  endMonth: number
-): Promise<{
-  reports: MonthlyReport[];
-  revenueGrowth: number;
-  accuracyTrend: number[];
-  noDiffRateTrend: number[];
-}> {
-  const startDate = dayjs(`${startYear}-${startMonth}-01`);
-  const endDate = dayjs(`${endYear}-${endMonth}-01`);
-
-  const months: { year: number; month: number }[] = [];
-  let current = startDate.clone();
-  while (current.isBefore(endDate) || current.isSame(endDate, 'month')) {
-    months.push({ year: current.year(), month: current.month() + 1 });
-    current = current.add(1, 'month');
-  }
-
-  const reports = await Promise.all(
-    months.map((m) => generateMonthlyReport(m.year, m.month))
-  );
-
-  const revenueGrowth =
-    reports.length >= 2
-      ? (reports[reports.length - 1].revenueByBusinessLine &&
-          Object.values(reports[reports.length - 1].revenueByBusinessLine).reduce((a, b) => a + b, 0) -
-            Object.values(reports[0].revenueByBusinessLine).reduce((a, b) => a + b, 0)) /
-          Object.values(reports[0].revenueByBusinessLine).reduce((a, b) => a + b, 0)
-      : 0;
-
-  const accuracyTrend = reports.map((r) => decimalToNumber(r.settlementAccuracy));
-  const noDiffRateTrend = reports.map((r) => decimalToNumber(r.noDiffRate));
-
-  return {
-    reports,
-    revenueGrowth,
-    accuracyTrend,
-    noDiffRateTrend,
+  supplierActivity: {
+    activeSuppliers: number;
+    newSuppliers: number;
   };
+  inventoryTurnover: number;
+  purchaseByCategory: {
+    categoryId: string;
+    categoryName: string;
+    amount: number;
+  }[];
 }
 
-export default {
-  calculateRevenueTrend,
-  calculateRevenueByBusinessLine,
-  calculateSplitRatioByBusinessLine,
-  calculateSettlementAccuracy,
-  calculateNoDiffRate,
-  calculateReportMetrics,
-  generateMonthlyReport,
-  getMonthlyReport,
-  getReportComparison,
+export interface DashboardChartsResult {
+  purchaseTrend: PurchaseTrendItem[];
+  categoryDistribution: CategoryPurchaseItem[];
+  supplierRanking: SupplierPerformanceItem[];
+  paymentAnalysis: PaymentTimelinessItem[];
+}
+
+const getDateRange = (params: { startDate?: Date; endDate?: Date }) => {
+  const now = dayjs();
+  const startDate = params.startDate ? dayjs(params.startDate).toDate() : now.startOf('year').toDate();
+  const endDate = params.endDate ? dayjs(params.endDate).toDate() : now.endOf('day').toDate();
+  return { startDate, endDate };
 };
+
+const buildWhereClause = (params: DashboardStatsParams): Prisma.PurchaseOrderWhereInput => {
+  const { startDate, endDate } = getDateRange(params);
+  const where: Prisma.PurchaseOrderWhereInput = {
+    createdAt: {
+      gte: startDate,
+      lte: endDate,
+    },
+    status: {
+      notIn: ['draft', 'cancelled'],
+    },
+  };
+  if (params.category) {
+    where.categoryId = params.category;
+  }
+  return where;
+};
+
+const reportService = {
+  async getDashboardStats(
+    params: DashboardStatsParams
+  ): Promise<ApiResponse<DashboardStatsResult>> {
+    try {
+      const { startDate, endDate } = getDateRange(params);
+      const where = buildWhereClause(params);
+
+      const now = dayjs();
+      const monthStart = now.startOf('month').toDate();
+
+      const [
+        allOrders,
+        monthOrders,
+        activeSuppliers,
+        newSuppliers,
+        categoryStats,
+        allReceipts,
+      ] = await Promise.all([
+        prisma.purchaseOrder.findMany({
+          where,
+          select: {
+            totalAmount: true,
+            createdAt: true,
+          },
+        }),
+        prisma.purchaseOrder.findMany({
+          where: {
+            ...where,
+            createdAt: {
+              gte: monthStart,
+              lte: endDate,
+            },
+          },
+          select: {
+            totalAmount: true,
+          },
+        }),
+        prisma.supplier.count({
+          where: {
+            status: 'active',
+            orders: {
+              some: {
+                createdAt: {
+                  gte: startDate,
+                  lte: endDate,
+                },
+              },
+            },
+          },
+        }),
+        prisma.supplier.count({
+          where: {
+            createdAt: {
+              gte: monthStart,
+              lte: endDate,
+            },
+            status: 'active',
+          },
+        }),
+        prisma.purchaseOrder.groupBy({
+          by: ['categoryId'],
+          _sum: {
+            totalAmount: true,
+          },
+          where,
+        }),
+        prisma.receipt.findMany({
+          where: {
+            receivedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            acceptedQuantity: true,
+            order: {
+              select: {
+                quantity: true,
+                totalAmount: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      const totalPurchaseAmount = allOrders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+      const monthPurchaseAmount = monthOrders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+
+      const totalAcceptedValue = allReceipts.reduce((sum, receipt) => {
+        const unitPrice = decimalToNumber(receipt.order.totalAmount) / receipt.order.quantity;
+        return sum + receipt.acceptedQuantity * unitPrice;
+      }, 0);
+      const averageInventoryValue = totalPurchaseAmount * 0.3;
+      const inventoryTurnover = averageInventoryValue > 0 ? totalAcceptedValue / averageInventoryValue : 0;
+
+      const categories = await prisma.category.findMany({
+        where: {
+          id: {
+            in: categoryStats.map((c) => c.categoryId),
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+      const purchaseByCategory = categoryStats.map((c) => ({
+        categoryId: c.categoryId,
+        categoryName: categoryMap.get(c.categoryId) || '未知品类',
+        amount: decimalToNumber(c._sum.totalAmount),
+      }));
+
+      const result: DashboardStatsResult = {
+        purchaseAmount: {
+          month: monthPurchaseAmount,
+          cumulative: totalPurchaseAmount,
+        },
+        orderCount: {
+          month: monthOrders.length,
+          cumulative: allOrders.length,
+        },
+        supplierActivity: {
+          activeSuppliers,
+          newSuppliers,
+        },
+        inventoryTurnover: Number(inventoryTurnover.toFixed(2)),
+        purchaseByCategory,
+      };
+
+      return successResponse(result);
+    } catch (error) {
+      return errorResponse(
+        `获取看板统计数据失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+
+  async getDashboardCharts(
+    params: DashboardChartsParams
+  ): Promise<ApiResponse<DashboardChartsResult>> {
+    try {
+      const { startDate, endDate } = getDateRange(params);
+      const where = buildWhereClause(params);
+      const trendType = params.trendType || 'monthly';
+
+      const [orders, categories, suppliers, payments] = await Promise.all([
+        prisma.purchaseOrder.findMany({
+          where,
+          include: {
+            category: true,
+            supplier: true,
+            payment: true,
+          },
+        }),
+        prisma.category.findMany({
+          select: { id: true, name: true },
+        }),
+        prisma.supplier.findMany({
+          where: {
+            status: 'active',
+          },
+          select: {
+            id: true,
+            name: true,
+            totalOrders: true,
+            totalAmount: true,
+            onTimeDeliveryRate: true,
+            qualityPassRate: true,
+            satisfactionScore: true,
+          },
+          orderBy: {
+            totalAmount: 'desc',
+          },
+          take: 10,
+        }),
+        prisma.payment.findMany({
+          where: {
+            status: 'paid',
+            actualPaidDate: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            amount: true,
+            dueDate: true,
+            actualPaidDate: true,
+            order: {
+              select: {
+                createdAt: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+      const purchaseTrend: PurchaseTrendItem[] = [];
+      const trendMap = new Map<string, { amount: number; orderCount: number }>();
+
+      for (const order of orders) {
+        const period =
+          trendType === 'monthly'
+            ? dayjs(order.createdAt).format('YYYY-MM')
+            : dayjs(order.createdAt).format('YYYY-ww');
+        const existing = trendMap.get(period) || { amount: 0, orderCount: 0 };
+        trendMap.set(period, {
+          amount: existing.amount + decimalToNumber(order.totalAmount),
+          orderCount: existing.orderCount + 1,
+        });
+      }
+
+      const sortedPeriods = Array.from(trendMap.keys()).sort();
+      for (const period of sortedPeriods) {
+        const data = trendMap.get(period)!;
+        purchaseTrend.push({
+          period,
+          amount: Number(data.amount.toFixed(2)),
+          orderCount: data.orderCount,
+        });
+      }
+
+      const totalAmount = orders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+      const categoryAmountMap = new Map<string, number>();
+      for (const order of orders) {
+        const existing = categoryAmountMap.get(order.categoryId) || 0;
+        categoryAmountMap.set(
+          order.categoryId,
+          existing + decimalToNumber(order.totalAmount)
+        );
+      }
+
+      const categoryDistribution: CategoryPurchaseItem[] = [];
+      for (const [categoryId, amount] of categoryAmountMap) {
+        categoryDistribution.push({
+          categoryId,
+          categoryName: categoryMap.get(categoryId) || '未知品类',
+          amount: Number(amount.toFixed(2)),
+          percentage: totalAmount > 0 ? Number(((amount / totalAmount) * 100).toFixed(2)) : 0,
+        });
+      }
+      categoryDistribution.sort((a, b) => b.amount - a.amount);
+
+      const supplierRanking: SupplierPerformanceItem[] = suppliers.map((s) => ({
+        supplierId: s.id,
+        supplierName: s.name,
+        totalAmount: decimalToNumber(s.totalAmount),
+        orderCount: s.totalOrders,
+        onTimeDeliveryRate: decimalToNumber(s.onTimeDeliveryRate),
+        qualityPassRate: decimalToNumber(s.qualityPassRate),
+        satisfactionScore: decimalToNumber(s.satisfactionScore),
+      }));
+
+      const paymentAnalysisMap = new Map<string, { totalDays: number; onTimeCount: number; totalCount: number }>();
+      for (const payment of payments) {
+        const period = dayjs(payment.actualPaidDate!).format('YYYY-MM');
+        const existing = paymentAnalysisMap.get(period) || { totalDays: 0, onTimeCount: 0, totalCount: 0 };
+        const paymentDays = dayjs(payment.actualPaidDate!).diff(dayjs(payment.order.createdAt), 'day');
+        const isOnTime = dayjs(payment.actualPaidDate!).isBefore(dayjs(payment.dueDate).add(1, 'day'));
+        paymentAnalysisMap.set(period, {
+          totalDays: existing.totalDays + paymentDays,
+          onTimeCount: existing.onTimeCount + (isOnTime ? 1 : 0),
+          totalCount: existing.totalCount + 1,
+        });
+      }
+
+      const paymentAnalysis: PaymentTimelinessItem[] = [];
+      const sortedPaymentPeriods = Array.from(paymentAnalysisMap.keys()).sort();
+      for (const period of sortedPaymentPeriods) {
+        const data = paymentAnalysisMap.get(period)!;
+        paymentAnalysis.push({
+          period,
+          averagePaymentDays: data.totalCount > 0 ? Number((data.totalDays / data.totalCount).toFixed(1)) : 0,
+          onTimePaymentRate: data.totalCount > 0 ? Number(((data.onTimeCount / data.totalCount) * 100).toFixed(2)) : 0,
+          totalPayments: data.totalCount,
+        });
+      }
+
+      const result: DashboardChartsResult = {
+        purchaseTrend,
+        categoryDistribution,
+        supplierRanking,
+        paymentAnalysis,
+      };
+
+      return successResponse(result);
+    } catch (error) {
+      return errorResponse(
+        `获取图表数据失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+
+  async generateMonthlyReport(
+    year: number,
+    month: number
+  ): Promise<ApiResponse<MonthlyReport>> {
+    try {
+      const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+
+      const existingReport = await prisma.monthlyReport.findUnique({
+        where: { yearMonth },
+      });
+
+      if (existingReport) {
+        return successResponse(transformMonthlyReport(existingReport));
+      }
+
+      const startDate = dayjs(`${year}-${month}-01`).startOf('month').toDate();
+      const endDate = dayjs(startDate).endOf('month').toDate();
+      const prevMonthStart = dayjs(startDate).subtract(1, 'month').toDate();
+      const prevMonthEnd = dayjs(prevMonthStart).endOf('month').toDate();
+      const sameMonthLastYearStart = dayjs(startDate).subtract(1, 'year').toDate();
+      const sameMonthLastYearEnd = dayjs(sameMonthLastYearStart).endOf('month').toDate();
+
+      const orderWhere: Prisma.PurchaseOrderWhereInput = {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+        status: {
+          notIn: ['draft', 'cancelled'],
+        },
+      };
+
+      const [
+        orders,
+        categories,
+        supplierOrderStats,
+        payments,
+        prevMonthOrders,
+        sameMonthLastYearOrders,
+      ] = await Promise.all([
+        prisma.purchaseOrder.findMany({
+          where: orderWhere,
+          include: {
+            category: true,
+            supplier: true,
+            receipt: true,
+          },
+        }),
+        prisma.category.findMany({
+          select: { id: true, name: true },
+        }),
+        prisma.purchaseOrder.groupBy({
+          by: ['supplierId'],
+          _sum: {
+            totalAmount: true,
+          },
+          _count: true,
+          where: orderWhere,
+        }),
+        prisma.payment.findMany({
+          where: {
+            status: 'paid',
+            actualPaidDate: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            amount: true,
+            dueDate: true,
+            actualPaidDate: true,
+          },
+        }),
+        prisma.purchaseOrder.findMany({
+          where: {
+            createdAt: {
+              gte: prevMonthStart,
+              lte: prevMonthEnd,
+            },
+            status: {
+              notIn: ['draft', 'cancelled'],
+            },
+          },
+          select: {
+            totalAmount: true,
+          },
+        }),
+        prisma.purchaseOrder.findMany({
+          where: {
+            createdAt: {
+              gte: sameMonthLastYearStart,
+              lte: sameMonthLastYearEnd,
+            },
+            status: {
+              notIn: ['draft', 'cancelled'],
+            },
+          },
+          select: {
+            totalAmount: true,
+          },
+        }),
+      ]);
+
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+      const purchaseByCategory: { [key: string]: number } = {};
+      for (const order of orders) {
+        const categoryName = categoryMap.get(order.categoryId) || '未知品类';
+        purchaseByCategory[categoryName] = (purchaseByCategory[categoryName] || 0) + decimalToNumber(order.totalAmount);
+      }
+
+      const supplierIds = supplierOrderStats.map((s) => s.supplierId);
+      const supplierDetails = await prisma.supplier.findMany({
+        where: {
+          id: {
+            in: supplierIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+      const supplierMap = new Map(supplierDetails.map((s) => [s.id, s.name]));
+
+      const supplierRanking = supplierOrderStats
+        .map((s) => ({
+          supplierId: s.supplierId,
+          supplierName: supplierMap.get(s.supplierId) || '未知供应商',
+          amount: decimalToNumber(s._sum.totalAmount),
+          orderCount: s._count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      let totalPaymentDays = 0;
+      let onTimePayments = 0;
+      for (const payment of payments) {
+        if (payment.actualPaidDate) {
+          const paymentDays = dayjs(payment.actualPaidDate).diff(dayjs(payment.dueDate), 'day');
+          totalPaymentDays += Math.max(0, paymentDays);
+          if (paymentDays <= 0) {
+            onTimePayments++;
+          }
+        }
+      }
+
+      const paymentTimeliness = {
+        onTime: onTimePayments,
+        overdue: payments.length - onTimePayments,
+        averageDays: payments.length > 0 ? Number((totalPaymentDays / payments.length).toFixed(1)) : 0,
+      };
+
+      const suppliersWithSatisfaction = await prisma.supplier.findMany({
+        where: {
+          id: {
+            in: supplierIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          satisfactionScore: true,
+        },
+        orderBy: {
+          satisfactionScore: 'desc',
+        },
+      });
+
+      const satisfactionScores = suppliersWithSatisfaction.map((s) => ({
+        supplierId: s.id,
+        supplierName: s.name,
+        score: decimalToNumber(s.satisfactionScore),
+      }));
+
+      const currentTotalAmount = orders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+      const prevMonthTotal = prevMonthOrders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+      const sameMonthLastYearTotal = sameMonthLastYearOrders.reduce(
+        (sum, order) => sum + decimalToNumber(order.totalAmount),
+        0
+      );
+
+      const totalAcceptedQuantity = orders.reduce(
+        (sum, order) => sum + (order.receipt?.acceptedQuantity || 0),
+        0
+      );
+      const totalOrderedQuantity = orders.reduce((sum, order) => sum + order.quantity, 0);
+      const qualityPassRate = totalOrderedQuantity > 0
+        ? Number(((totalAcceptedQuantity / totalOrderedQuantity) * 100).toFixed(2))
+        : 0;
+
+      let totalDeliveryDays = 0;
+      let deliveredOrders = 0;
+      for (const order of orders) {
+        if (order.receipt?.receivedAt) {
+          const deliveryDays = dayjs(order.receipt.receivedAt).diff(dayjs(order.createdAt), 'day');
+          totalDeliveryDays += deliveryDays;
+          deliveredOrders++;
+        }
+      }
+
+      const performanceMetrics = {
+        totalAmount: Number(currentTotalAmount.toFixed(2)),
+        orderCount: orders.length,
+        averageDeliveryDays: deliveredOrders > 0 ? Number((totalDeliveryDays / deliveredOrders).toFixed(1)) : 0,
+        qualityPassRate,
+        onTimePaymentRate: payments.length > 0 ? Number(((onTimePayments / payments.length) * 100).toFixed(2)) : 0,
+        monthOverMonthGrowth: prevMonthTotal > 0
+          ? Number((((currentTotalAmount - prevMonthTotal) / prevMonthTotal) * 100).toFixed(2))
+          : 0,
+        yearOverYearGrowth: sameMonthLastYearTotal > 0
+          ? Number((((currentTotalAmount - sameMonthLastYearTotal) / sameMonthLastYearTotal) * 100).toFixed(2))
+          : 0,
+      };
+
+      const report = await prisma.monthlyReport.create({
+        data: {
+          id: uuidv4(),
+          yearMonth,
+          purchaseByCategory,
+          supplierRanking,
+          paymentTimeliness,
+          satisfactionScores,
+          performanceMetrics,
+        },
+      });
+
+      return successResponse(transformMonthlyReport(report), '月度报表生成成功');
+    } catch (error) {
+      return errorResponse(
+        `生成月度报表失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+
+  async getMonthlyReports(
+    page: number = 1,
+    pageSize: number = 12
+  ): Promise<ApiResponse<PaginatedResponse<MonthlyReport>>> {
+    try {
+      const skip = (page - 1) * pageSize;
+
+      const [items, total] = await Promise.all([
+        prisma.monthlyReport.findMany({
+          skip,
+          take: pageSize,
+          orderBy: { yearMonth: 'desc' },
+        }),
+        prisma.monthlyReport.count(),
+      ]);
+
+      const transformedItems = items.map(transformMonthlyReport);
+      return paginatedResponse(transformedItems, total, page, pageSize);
+    } catch (error) {
+      return errorResponse(
+        `获取月度报表列表失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+
+  async getMonthlyReportById(
+    id: string
+  ): Promise<ApiResponse<MonthlyReport | null>> {
+    try {
+      const report = await prisma.monthlyReport.findUnique({
+        where: { id },
+      });
+
+      if (!report) {
+        return errorResponse('月度报表不存在', 404);
+      }
+
+      return successResponse(transformMonthlyReport(report));
+    } catch (error) {
+      return errorResponse(
+        `获取月度报表详情失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+
+  async exportMonthlyReport(
+    id: string
+  ): Promise<ApiResponse<{ data: any[]; headers: string[]; filename: string }>> {
+    try {
+      const report = await prisma.monthlyReport.findUnique({
+        where: { id },
+      });
+
+      if (!report) {
+        return errorResponse('月度报表不存在', 404);
+      }
+
+      const transformed = transformMonthlyReport(report);
+
+      const exportData: any[] = [];
+
+      exportData.push({ 指标: '采购总额', 值: transformed.performanceMetrics.totalAmount });
+      exportData.push({ 指标: '订单总数', 值: transformed.performanceMetrics.orderCount });
+      exportData.push({ 指标: '平均交付天数', 值: transformed.performanceMetrics.averageDeliveryDays });
+      exportData.push({ 指标: '质量合格率(%)', 值: transformed.performanceMetrics.qualityPassRate });
+      exportData.push({ 指标: '按时付款率(%)', 值: transformed.performanceMetrics.onTimePaymentRate });
+      exportData.push({ 指标: '环比增长(%)', 值: (transformed.performanceMetrics as any).monthOverMonthGrowth || 0 });
+      exportData.push({ 指标: '同比增长(%)', 值: (transformed.performanceMetrics as any).yearOverYearGrowth || 0 });
+      exportData.push({ 指标: '', 值: '' });
+
+      exportData.push({ 指标: '=== 各品类采购额 ===', 值: '' });
+      for (const [category, amount] of Object.entries(transformed.purchaseByCategory)) {
+        exportData.push({ 指标: category, 值: amount });
+      }
+      exportData.push({ 指标: '', 值: '' });
+
+      exportData.push({ 指标: '=== 供应商排名(按金额) ===', 值: '' });
+      exportData.push({ 指标: '供应商名称', 值: '采购金额' });
+      transformed.supplierRanking.forEach((s, index) => {
+        exportData.push({ 指标: `${index + 1}. ${s.supplierName}`, 值: s.amount });
+      });
+      exportData.push({ 指标: '', 值: '' });
+
+      exportData.push({ 指标: '=== 付款时效分析 ===', 值: '' });
+      exportData.push({ 指标: '按时付款数', 值: transformed.paymentTimeliness.onTime });
+      exportData.push({ 指标: '逾期付款数', 值: transformed.paymentTimeliness.overdue });
+      exportData.push({ 指标: '平均付款天数', 值: transformed.paymentTimeliness.averageDays });
+      exportData.push({ 指标: '', 值: '' });
+
+      exportData.push({ 指标: '=== 供应商满意度 ===', 值: '' });
+      exportData.push({ 指标: '供应商名称', 值: '满意度评分' });
+      transformed.satisfactionScores.forEach((s, index) => {
+        exportData.push({ 指标: `${index + 1}. ${s.supplierName}`, 值: s.score });
+      });
+
+      const headers = ['指标', '值'];
+      const filename = `月度报表_${transformed.yearMonth}_${dayjs().format('YYYYMMDDHHmmss')}.csv`;
+
+      return successResponse({
+        data: exportData,
+        headers,
+        filename,
+      });
+    } catch (error) {
+      return errorResponse(
+        `导出月度报表失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        500
+      );
+    }
+  },
+};
+
+export default reportService;

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import prisma from '../utils/prisma.js'
 import { successResponse, errorResponse, createdResponse } from '../utils/response.js'
 import { generateToken, verifyToken } from '../utils/jwt.js'
 import { comparePassword, hashPassword } from '../utils/password.js'
@@ -7,9 +7,9 @@ import { loginRateLimit } from '../middleware/rateLimit.middleware.js'
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware.js'
 import { operationLogger } from '../middleware/logger.middleware.js'
 import { getCache, setCache, deleteCache } from '../utils/redis.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -54,7 +54,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   }
 })
 
-router.post('/login', loginRateLimit, operationLogger('auth', 'login'), async (req: Request, res: Response): Promise<void> => {
+router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, password } = req.body
 
@@ -103,6 +103,7 @@ router.post('/login', loginRateLimit, operationLogger('auth', 'login'), async (r
       expiresIn: 24 * 60 * 60,
     }, '登录成功'))
   } catch (error) {
+    logger.error('登录失败详细错误', error)
     res.status(500).json(errorResponse(`登录失败: ${error instanceof Error ? error.message : '未知错误'}`, 500))
   }
 })

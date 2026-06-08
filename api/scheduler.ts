@@ -18,65 +18,55 @@ export interface ScheduledTask {
 
 const tasks: ScheduledTask[] = [
   {
-    id: 'revenue-capture',
-    name: '每日流水抓取',
-    cronExpression: '0 1 * * *',
-    description: '每日凌晨1点执行收入流水抓取任务',
+    id: 'order-timeout-reminder',
+    name: '订单超时提醒',
+    cronExpression: '0 9 * * *',
+    description: '每日上午9点检查即将超时的订单并发送提醒',
     enabled: true,
     status: 'idle',
     task: async () => {
-      logger.info('开始执行每日流水抓取任务')
+      logger.info('开始执行订单超时提醒任务')
       await new Promise((resolve) => setTimeout(resolve, 2000))
-      logger.info('每日流水抓取任务完成')
+      logger.info('订单超时提醒任务完成')
     },
   },
   {
-    id: 'settlement-generation',
-    name: '结算单生成',
-    cronExpression: '0 2 * * *',
-    description: '每日凌晨2点执行结算单生成任务',
+    id: 'supplier-performance-evaluation',
+    name: '供应商绩效评估',
+    cronExpression: '0 2 * * 1',
+    description: '每周一凌晨2点执行供应商绩效评估',
     enabled: true,
     status: 'idle',
     task: async () => {
-      logger.info('开始执行结算单生成任务')
+      logger.info('开始执行供应商绩效评估任务')
       await new Promise((resolve) => setTimeout(resolve, 3000))
-      logger.info('结算单生成任务完成')
+      logger.info('供应商绩效评估任务完成')
     },
   },
   {
-    id: 'bank-reconciliation',
-    name: '银行对账',
-    cronExpression: '0 3 * * *',
-    description: '每日凌晨3点执行银行对账任务',
+    id: 'inventory-turnover-calculation',
+    name: '库存周转率计算',
+    cronExpression: '0 3 * * 1',
+    description: '每周一凌晨3点计算库存周转率',
     enabled: true,
     status: 'idle',
     task: async () => {
-      logger.info('开始执行银行对账任务')
+      logger.info('开始执行库存周转率计算任务')
       await new Promise((resolve) => setTimeout(resolve, 5000))
-
-      const diffCount = Math.floor(Math.random() * 5)
-      const diffAmount = Math.floor(Math.random() * 10000)
-
-      if (diffCount > 0) {
-        const today = new Date().toLocaleDateString('zh-CN')
-        await notifyReconciliationAlert(diffCount, diffAmount, today)
-        logger.warn(`银行对账发现 ${diffCount} 笔差异，金额: ¥${diffAmount}`)
-      }
-
-      logger.info('银行对账任务完成')
+      logger.info('库存周转率计算任务完成')
     },
   },
   {
     id: 'monthly-report',
-    name: '月度报告生成',
+    name: '月度采购报告生成',
     cronExpression: '0 4 1 * *',
-    description: '每月1号凌晨4点执行月度报告生成任务',
+    description: '每月1号凌晨4点自动生成月度采购报告',
     enabled: true,
     status: 'idle',
     task: async () => {
-      logger.info('开始执行月度报告生成任务')
+      logger.info('开始执行月度采购报告生成任务')
       await new Promise((resolve) => setTimeout(resolve, 10000))
-      logger.info('月度报告生成任务完成')
+      logger.info('月度采购报告生成任务完成')
     },
   },
 ]
