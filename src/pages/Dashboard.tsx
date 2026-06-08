@@ -4,22 +4,25 @@ import {
   TrendingDown,
   DollarSign,
   Calendar,
-  Target,
+  Package,
   AlertTriangle,
   Clock,
   CheckCircle,
   Bell,
   Plus,
   FileText,
-  RefreshCw,
+  Search,
   Settings,
   Info,
   XCircle,
   Flame,
+  Users,
+  BarChart3,
+  Truck,
 } from 'lucide-react';
 import { Progress, Button, Spin } from 'antd';
 import { useDashboardStore } from '../store/useDashboardStore';
-import { formatCurrency, formatPercent, formatRelativeTime } from '../utils/format';
+import { formatCurrency, formatPercent, formatRelativeTime, formatTurnoverRate } from '../utils/format';
 import { ALERT_LEVELS } from '../utils/constants';
 import RevenueTrendChart from '../components/charts/RevenueTrendChart';
 import BusinessLinePieChart from '../components/charts/BusinessLinePieChart';
@@ -67,6 +70,8 @@ function StatCard({ title, value, icon, iconBg, iconColor, trend, trendLabel, su
         setDisplayValue(currentValue.toFixed(2) + '%');
       } else if (value.includes('¥')) {
         setDisplayValue('¥' + formatNumber(currentValue));
+      } else if (value.includes('次')) {
+        setDisplayValue(currentValue.toFixed(1) + '次');
       } else {
         setDisplayValue(Math.round(currentValue).toLocaleString());
       }
@@ -202,8 +207,8 @@ function AlertItem({ alert, delay }: AlertItemProps) {
 export default function Dashboard() {
   const {
     stats,
-    revenueTrend,
-    revenueByBusinessLine,
+    purchaseTrend,
+    purchaseByCategory,
     alerts,
     loading,
     fetchAllDashboardData,
@@ -221,72 +226,94 @@ export default function Dashboard() {
     if (!stats) return [];
     return [
       {
-        title: '今日收入',
-        value: formatCurrency(stats.todayRevenue),
+        title: '本月采购额',
+        value: formatCurrency(stats.monthPurchaseAmount),
         icon: <DollarSign className="w-6 h-6" />,
         iconBg: 'rgba(22, 93, 255, 0.1)',
         iconColor: '#165DFF',
         trend: 12.5,
-        trendLabel: '较昨日',
+        trendLabel: '较上月',
         delay: 100,
       },
       {
-        title: '本月收入',
-        value: formatCurrency(stats.monthRevenue),
+        title: '累计采购额',
+        value: formatCurrency(stats.totalPurchaseAmount),
         icon: <Calendar className="w-6 h-6" />,
         iconBg: 'rgba(0, 180, 42, 0.1)',
         iconColor: '#00B42A',
         trend: 8.3,
-        trendLabel: '较上月',
+        trendLabel: '较去年同期',
         delay: 200,
       },
       {
-        title: '结算进度',
-        value: formatPercent(stats.settlementProgress, 1),
-        icon: <Target className="w-6 h-6" />,
+        title: '订单总数',
+        value: stats.totalOrders.toString(),
+        suffix: '笔',
+        icon: <FileText className="w-6 h-6" />,
         iconBg: 'rgba(114, 46, 209, 0.1)',
         iconColor: '#722ED1',
         trend: 5.2,
-        trendLabel: '较上周',
+        trendLabel: '较上月',
         delay: 300,
       },
       {
-        title: '差异率',
-        value: formatPercent(stats.diffRate, 2),
-        icon: <AlertTriangle className="w-6 h-6" />,
-        iconBg: 'rgba(255, 125, 0, 0.1)',
-        iconColor: '#FF7D00',
-        trend: -2.1,
-        trendLabel: '较上周',
+        title: '活跃供应商',
+        value: stats.activeSuppliers.toString(),
+        suffix: '家',
+        icon: <Users className="w-6 h-6" />,
+        iconBg: 'rgba(0, 191, 188, 0.1)',
+        iconColor: '#00BFBC',
+        trend: 3.8,
+        trendLabel: '较上月',
         delay: 400,
       },
       {
-        title: '待办审批',
+        title: '库存周转率',
+        value: formatTurnoverRate(stats.inventoryTurnover),
+        icon: <Package className="w-6 h-6" />,
+        iconBg: 'rgba(255, 125, 0, 0.1)',
+        iconColor: '#FF7D00',
+        trend: -1.5,
+        trendLabel: '较上月',
+        delay: 500,
+      },
+      {
+        title: '准时交货率',
+        value: formatPercent(stats.onTimeDeliveryRate, 1),
+        icon: <Truck className="w-6 h-6" />,
+        iconBg: 'rgba(0, 180, 42, 0.1)',
+        iconColor: '#00B42A',
+        trend: 2.1,
+        trendLabel: '较上月',
+        delay: 600,
+      },
+      {
+        title: '待处理审批',
         value: stats.pendingApprovals.toString(),
         suffix: '条',
         icon: <Clock className="w-6 h-6" />,
         iconBg: 'rgba(245, 63, 63, 0.1)',
         iconColor: '#F53F3F',
-        delay: 500,
+        delay: 700,
       },
       {
-        title: '今日交易数',
-        value: stats.todayTransactions.toString(),
+        title: '本月订单数',
+        value: stats.monthOrders.toString(),
         suffix: '笔',
         icon: <CheckCircle className="w-6 h-6" />,
-        iconBg: 'rgba(0, 191, 188, 0.1)',
-        iconColor: '#00BFBC',
+        iconBg: 'rgba(114, 46, 209, 0.1)',
+        iconColor: '#722ED1',
         trend: 15.8,
-        trendLabel: '较昨日',
-        delay: 600,
+        trendLabel: '较上月',
+        delay: 800,
       },
     ];
   }, [stats]);
 
   const quickActions = [
-    { label: '新增收入', icon: <Plus className="w-4 h-4" />, type: 'primary' },
-    { label: '生成结算单', icon: <FileText className="w-4 h-4" />, type: 'default' },
-    { label: '手动对账', icon: <RefreshCw className="w-4 h-4" />, type: 'default' },
+    { label: '新增需求', icon: <Plus className="w-4 h-4" />, type: 'primary' },
+    { label: '发起询价', icon: <Search className="w-4 h-4" />, type: 'default' },
+    { label: '新建订单', icon: <FileText className="w-4 h-4" />, type: 'default' },
     { label: '系统设置', icon: <Settings className="w-4 h-4" />, type: 'default' },
   ];
 
@@ -305,8 +332,8 @@ export default function Dashboard() {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">数据概览</h1>
-          <p className="text-sm text-neutral-500 mt-1">实时监控业务运营关键指标</p>
+          <h1 className="page-title">采购数据概览</h1>
+          <p className="text-sm text-neutral-500 mt-1">实时监控采购业务运营关键指标</p>
         </div>
         <div className="flex items-center gap-3">
           {quickActions.map((action, index) => (
@@ -322,25 +349,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
         {statCards.map((card, index) => (
           <StatCard key={index} {...card} />
         ))}
       </div>
 
       {stats && (
-        <div className="card animate-slide-up" style={{ animationDelay: '700ms' }}>
+        <div className="card animate-slide-up" style={{ animationDelay: '900ms' }}>
           <div className="card-body">
             <div className="flex items-center gap-8">
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-500">本月结算进度</span>
+                  <span className="text-sm text-neutral-500">订单完成率</span>
                   <span className="text-lg font-semibold text-neutral-800">
-                    {formatPercent(stats.settlementProgress, 1)}
+                    {formatPercent(0.925, 1)}
                   </span>
                 </div>
                 <Progress
-                  percent={stats.settlementProgress * 100}
+                  percent={92.5}
                   showInfo={false}
                   strokeColor={{
                     '0%': '#165DFF',
@@ -353,13 +380,13 @@ export default function Dashboard() {
               <div className="h-12 w-px bg-neutral-200" />
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-500">对账准确率</span>
+                  <span className="text-sm text-neutral-500">供应商合格率</span>
                   <span className="text-lg font-semibold text-neutral-800">
-                    {formatPercent(1 - stats.diffRate, 1)}
+                    {formatPercent(0.968, 1)}
                   </span>
                 </div>
                 <Progress
-                  percent={(1 - stats.diffRate) * 100}
+                  percent={96.8}
                   showInfo={false}
                   strokeColor="#00B42A"
                   strokeWidth={12}
@@ -369,13 +396,13 @@ export default function Dashboard() {
               <div className="h-12 w-px bg-neutral-200" />
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-500">差异处理率</span>
+                  <span className="text-sm text-neutral-500">付款及时率</span>
                   <span className="text-lg font-semibold text-neutral-800">
-                    {formatPercent(0.85, 1)}
+                    {formatPercent(0.894, 1)}
                   </span>
                 </div>
                 <Progress
-                  percent={85}
+                  percent={89.4}
                   showInfo={false}
                   strokeColor="#722ED1"
                   strokeWidth={12}
@@ -388,11 +415,11 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 card animate-slide-up" style={{ animationDelay: '800ms' }}>
+        <div className="lg:col-span-2 card animate-slide-up" style={{ animationDelay: '1000ms' }}>
           <div className="card-header">
             <h3 className="card-title flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-primary-500" />
-              收入趋势
+              采购趋势
             </h3>
             <div className="flex gap-2">
               <Button size="small" type="primary">近30天</Button>
@@ -401,37 +428,45 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="card-body pt-2">
-            <RevenueTrendChart data={revenueTrend} />
+            <RevenueTrendChart data={purchaseTrend} />
           </div>
         </div>
 
-        <div className="card animate-slide-up" style={{ animationDelay: '900ms' }}>
+        <div className="card animate-slide-up" style={{ animationDelay: '1100ms' }}>
           <div className="card-header">
             <h3 className="card-title flex items-center gap-2">
-              <Target className="w-4 h-4 text-success-500" />
-              业务线收入占比
+              <Package className="w-4 h-4 text-success-500" />
+              采购分类占比
             </h3>
           </div>
           <div className="card-body pt-2">
-            <BusinessLinePieChart data={revenueByBusinessLine} />
+            <BusinessLinePieChart data={purchaseByCategory.map(item => ({
+              businessLine: item.category,
+              amount: item.amount,
+              percentage: item.percentage,
+            }))} />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="card animate-slide-up" style={{ animationDelay: '1000ms' }}>
+        <div className="card animate-slide-up" style={{ animationDelay: '1200ms' }}>
           <div className="card-header">
             <h3 className="card-title flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-warning-500" />
-              业务线收入对比
+              采购分类对比
             </h3>
           </div>
           <div className="card-body pt-2">
-            <BusinessLineBarChart data={revenueByBusinessLine} />
+            <BusinessLineBarChart data={purchaseByCategory.map(item => ({
+              businessLine: item.category,
+              amount: item.amount,
+              percentage: item.percentage,
+            }))} />
           </div>
         </div>
 
-        <div className="lg:col-span-2 card animate-slide-up" style={{ animationDelay: '1100ms' }}>
+        <div className="lg:col-span-2 card animate-slide-up" style={{ animationDelay: '1300ms' }}>
           <div className="card-header">
             <h3 className="card-title flex items-center gap-2">
               <Bell className="w-4 h-4 text-danger-500" />
@@ -445,34 +480,12 @@ export default function Dashboard() {
           <div className="card-body pt-2">
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
               {alerts.map((alert, index) => (
-                <AlertItem key={alert.id} alert={alert} delay={1200 + index * 100} />
+                <AlertItem key={alert.id} alert={alert} delay={1400 + index * 100} />
               ))}
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function BarChart3(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
   );
 }

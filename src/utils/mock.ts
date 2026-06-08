@@ -14,12 +14,25 @@ import type {
   MonthlyReport,
   DashboardStats,
   OperationLog,
+  PurchaseRequirementStatus,
+  PurchaseOrderStatus,
+  LogisticsStatus,
+  PaymentStatus,
+  PaymentType,
+  RevenueRecord,
+  Settlement,
+  SplitDetail,
+  PaymentInstruction,
+  SplitRule,
+  SplitRuleHistory,
+  ReconciliationStatus,
+  SettlementStatus,
 } from '@shared/types';
-import { CATEGORIES, PAYMENT_TERMS } from './constants';
+import { CATEGORIES, PAYMENT_TERMS, BUSINESS_LINES, CHANNELS } from './constants';
 
 const categoryMap = new Map(CATEGORIES.map(c => [c.value, c]));
 
-const getRandomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const getRandomElement = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 export const delay = <T>(data: T, ms: number = 300): Promise<T> => {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms));
@@ -269,7 +282,7 @@ export const generateMockRequirements = (count: number = 50): PurchaseRequiremen
   ];
 
   for (let i = 0; i < count; i++) {
-    const category = getRandomElement(CATEGORIES);
+    const category: { value: string; label: string; code: string } = getRandomElement(CATEGORIES);
     const status = getRandomElement(statuses);
     const itemNames: { [key: string]: string[] } = {
       office_supplies: ['A4打印纸', '签字笔', '文件夹', '打印机墨盒', '笔记本'],
@@ -335,7 +348,7 @@ export const generateMockOrders = (count: number = 30): PurchaseOrder[] => {
 
   for (let i = 0; i < count; i++) {
     const supplier = getRandomElement(mockSuppliers);
-    const category = getRandomElement(CATEGORIES);
+    const category: { value: string; label: string; code: string } = getRandomElement(CATEGORIES);
     const itemNames: { [key: string]: string[] } = {
       office_supplies: ['A4打印纸', '办公设备'],
       it_equipment: ['笔记本电脑', '服务器'],
@@ -632,7 +645,7 @@ export const mockInquiries: Inquiry[] = [
     quantity: 20,
     unit: 'piece',
     description: '为新入职员工采购笔记本电脑20台',
-    supplierIds: ['supp_001', 'supp_002'],
+    supplierIds: ['supp_001', 'supp_002', 'supp_005'],
     deadline: getRandomFutureDate(7),
     status: 'quoting',
     createdById: 'user_001',
@@ -657,6 +670,78 @@ export const mockInquiries: Inquiry[] = [
     createdAt: getRandomDate(10),
     updatedAt: getRandomDate(3),
   },
+  {
+    id: 'inquiry_003',
+    inquiryNo: 'INQ-2024-0053',
+    requirementId: 'req_003',
+    title: '服务器设备采购询价',
+    category: 'it_equipment',
+    itemName: 'Dell PowerEdge R750',
+    specification: '2*Intel Xeon Gold 6338/64GB/2*4TB SSD',
+    quantity: 5,
+    unit: 'piece',
+    description: '数据中心扩容采购服务器设备',
+    supplierIds: ['supp_001', 'supp_005'],
+    deadline: getRandomFutureDate(10),
+    status: 'quoted',
+    createdById: 'user_001',
+    createdAt: getRandomDate(15),
+    updatedAt: getRandomDate(5),
+  },
+  {
+    id: 'inquiry_004',
+    inquiryNo: 'INQ-2024-0054',
+    requirementId: 'req_004',
+    title: '生产用钢材采购询价',
+    category: 'raw_materials',
+    itemName: '冷轧钢板',
+    specification: '1.5mm*1250mm*2500mm，DC01',
+    quantity: 500,
+    unit: 'piece',
+    description: '生产线月度原材料采购',
+    supplierIds: ['supp_003'],
+    deadline: getRandomFutureDate(3),
+    status: 'completed',
+    createdById: 'user_001',
+    createdAt: getRandomDate(30),
+    updatedAt: getRandomDate(10),
+  },
+  {
+    id: 'inquiry_005',
+    inquiryNo: 'INQ-2024-0055',
+    requirementId: 'req_005',
+    title: 'ERP系统升级服务采购询价',
+    category: 'software',
+    itemName: 'ERP系统升级',
+    specification: '从V5.0升级到V6.0，包含数据迁移和培训',
+    quantity: 1,
+    unit: 'set',
+    description: '企业ERP系统版本升级项目',
+    supplierIds: ['supp_005'],
+    deadline: getRandomFutureDate(15),
+    status: 'sent',
+    createdById: 'user_001',
+    createdAt: getRandomDate(3),
+    updatedAt: getRandomDate(1),
+  },
+  {
+    id: 'inquiry_006',
+    inquiryNo: 'INQ-2024-0056',
+    requirementId: 'req_006',
+    title: '包装纸箱采购询价',
+    category: 'packaging',
+    itemName: '标准运输纸箱',
+    specification: '400*300*200mm，五层瓦楞',
+    quantity: 2000,
+    unit: 'piece',
+    description: '电商部门月度包装材料采购',
+    supplierIds: ['supp_004', 'supp_003'],
+    deadline: getRandomFutureDate(8),
+    status: 'quoting',
+    createdById: 'user_001',
+    createdAt: getRandomDate(7),
+    updatedAt: getRandomDate(2),
+  },
 ];
 
 export const mockQuotes: Quote[] = [
@@ -672,7 +757,7 @@ export const mockQuotes: Quote[] = [
     deliveryAddress: '北京市朝阳区XX路XX号',
     paymentTerms: 'net_30',
     warranty: '整机保修3年',
-    remarks: '可提供上门安装服务',
+    remarks: '可提供上门安装服务，包含系统部署',
     status: 'submitted',
     createdAt: getRandomDate(3),
     updatedAt: getRandomDate(1),
@@ -689,10 +774,146 @@ export const mockQuotes: Quote[] = [
     deliveryAddress: '北京市朝阳区XX路XX号',
     paymentTerms: 'net_60',
     warranty: '整机保修2年',
-    remarks: '批量采购可再优惠2%',
+    remarks: '批量采购可再优惠2%，赠送笔记本包',
     status: 'submitted',
     createdAt: getRandomDate(2),
     updatedAt: getRandomDate(1),
+  },
+  {
+    id: 'quote_003',
+    quoteNo: 'QTE-2024-0103',
+    inquiryId: 'inquiry_001',
+    supplierId: 'supp_005',
+    unitPrice: 13500,
+    totalPrice: 270000,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(8),
+    deliveryAddress: '北京市朝阳区XX路XX号',
+    paymentTerms: 'net_30',
+    warranty: '整机保修3年，延保1年',
+    remarks: '包含3年免费上门维修服务，48小时响应',
+    status: 'submitted',
+    createdAt: getRandomDate(4),
+    updatedAt: getRandomDate(1),
+  },
+  {
+    id: 'quote_004',
+    quoteNo: 'QTE-2024-0104',
+    inquiryId: 'inquiry_002',
+    supplierId: 'supp_002',
+    unitPrice: 125,
+    totalPrice: 12500,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(5),
+    deliveryAddress: '北京市朝阳区XX路XX号',
+    paymentTerms: 'net_30',
+    warranty: '无',
+    remarks: '免费配送上楼，可开增值税专用发票',
+    status: 'submitted',
+    createdAt: getRandomDate(5),
+    updatedAt: getRandomDate(2),
+  },
+  {
+    id: 'quote_005',
+    quoteNo: 'QTE-2024-0105',
+    inquiryId: 'inquiry_002',
+    supplierId: 'supp_004',
+    unitPrice: 118,
+    totalPrice: 11800,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(7),
+    deliveryAddress: '北京市朝阳区XX路XX号',
+    paymentTerms: 'cod',
+    warranty: '无',
+    remarks: '长期合作可月结，质量问题包退换',
+    status: 'submitted',
+    createdAt: getRandomDate(6),
+    updatedAt: getRandomDate(3),
+  },
+  {
+    id: 'quote_006',
+    quoteNo: 'QTE-2024-0106',
+    inquiryId: 'inquiry_003',
+    supplierId: 'supp_001',
+    unitPrice: 58000,
+    totalPrice: 290000,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(20),
+    deliveryAddress: '北京市朝阳区XX路XX号数据中心',
+    paymentTerms: 'half_prepaid',
+    warranty: '硬件保修3年，7x24小时技术支持',
+    remarks: '包含上架安装调试服务，提供三年原厂服务',
+    status: 'submitted',
+    createdAt: getRandomDate(8),
+    updatedAt: getRandomDate(3),
+  },
+  {
+    id: 'quote_007',
+    quoteNo: 'QTE-2024-0107',
+    inquiryId: 'inquiry_003',
+    supplierId: 'supp_005',
+    unitPrice: 62000,
+    totalPrice: 310000,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(15),
+    deliveryAddress: '北京市朝阳区XX路XX号数据中心',
+    paymentTerms: 'net_30',
+    warranty: '硬件保修5年，7x24小时上门服务',
+    remarks: '赠送一年运维服务，包含季度健康检查',
+    status: 'submitted',
+    createdAt: getRandomDate(7),
+    updatedAt: getRandomDate(2),
+  },
+  {
+    id: 'quote_008',
+    quoteNo: 'QTE-2024-0108',
+    inquiryId: 'inquiry_004',
+    supplierId: 'supp_003',
+    unitPrice: 4200,
+    totalPrice: 2100000,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(10),
+    deliveryAddress: '东莞市XX工业区生产基地',
+    paymentTerms: 'net_60',
+    warranty: '质量问题包退换',
+    remarks: '可分批次送货，按需生产',
+    status: 'selected',
+    createdAt: getRandomDate(20),
+    updatedAt: getRandomDate(10),
+  },
+  {
+    id: 'quote_009',
+    quoteNo: 'QTE-2024-0109',
+    inquiryId: 'inquiry_006',
+    supplierId: 'supp_004',
+    unitPrice: 3.5,
+    totalPrice: 7000,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(5),
+    deliveryAddress: '广州市XX电商仓库',
+    paymentTerms: 'net_30',
+    warranty: '运输破损包赔',
+    remarks: '可按订单生产，支持定制印刷',
+    status: 'submitted',
+    createdAt: getRandomDate(4),
+    updatedAt: getRandomDate(1),
+  },
+  {
+    id: 'quote_010',
+    quoteNo: 'QTE-2024-0110',
+    inquiryId: 'inquiry_006',
+    supplierId: 'supp_003',
+    unitPrice: 3.2,
+    totalPrice: 6400,
+    currency: 'CNY',
+    deliveryDate: getRandomFutureDate(7),
+    deliveryAddress: '广州市XX电商仓库',
+    paymentTerms: 'net_60',
+    warranty: '质量问题包退换',
+    remarks: '月采购量超5000个可再降0.2元/个',
+    status: 'submitted',
+    createdAt: getRandomDate(5),
+    updatedAt: getRandomDate(2),
   },
 ];
 
@@ -708,7 +929,7 @@ export const mockComparisonReports: ComparisonReport[] = [
         supplierName: '深圳市科技创新有限公司',
         unitPrice: 12800,
         totalPrice: 256000,
-        deliveryDate: new Date(),
+        deliveryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
         priceScore: 95,
         deliveryScore: 90,
         qualityScore: 95,
@@ -720,18 +941,126 @@ export const mockComparisonReports: ComparisonReport[] = [
         supplierName: '广州市办公设备有限公司',
         unitPrice: 13200,
         totalPrice: 264000,
-        deliveryDate: new Date(),
+        deliveryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         priceScore: 85,
         deliveryScore: 80,
         qualityScore: 85,
         totalScore: 83.3,
         rank: 2,
       },
+      {
+        supplierId: 'supp_005',
+        supplierName: '北京市软件服务有限公司',
+        unitPrice: 13500,
+        totalPrice: 270000,
+        deliveryDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
+        priceScore: 80,
+        deliveryScore: 95,
+        qualityScore: 98,
+        totalScore: 91.0,
+        rank: 3,
+      },
     ],
     recommendedSupplierId: 'supp_001',
-    recommendationReason: '综合评分最高，价格优势明显，交货周期短，售后服务完善',
+    recommendationReason: '综合评分最高，价格优势明显，比第二名低8,000元。售后服务完善，提供3年整机保修，历史合作记录良好，准时交货率98.5%。',
     createdById: 'user_001',
     createdAt: getRandomDate(2),
+  },
+  {
+    id: 'report_comp_002',
+    reportNo: 'CMP-2024-0002',
+    inquiryId: 'inquiry_002',
+    requirementId: 'req_002',
+    quotes: [
+      {
+        supplierId: 'supp_002',
+        supplierName: '广州市办公设备有限公司',
+        unitPrice: 125,
+        totalPrice: 12500,
+        deliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        priceScore: 88,
+        deliveryScore: 92,
+        qualityScore: 85,
+        totalScore: 88.3,
+        rank: 2,
+      },
+      {
+        supplierId: 'supp_004',
+        supplierName: '佛山市包装材料有限公司',
+        unitPrice: 118,
+        totalPrice: 11800,
+        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        priceScore: 95,
+        deliveryScore: 85,
+        qualityScore: 82,
+        totalScore: 87.3,
+        rank: 1,
+      },
+    ],
+    recommendedSupplierId: 'supp_004',
+    recommendationReason: '价格优势明显，单价比第二名低7元，总价低700元。虽然交货期稍长2天，但办公耗材对时效要求不高，综合考虑成本优先。',
+    createdById: 'user_001',
+    createdAt: getRandomDate(5),
+  },
+  {
+    id: 'report_comp_003',
+    reportNo: 'CMP-2024-0003',
+    inquiryId: 'inquiry_003',
+    requirementId: 'req_003',
+    quotes: [
+      {
+        supplierId: 'supp_001',
+        supplierName: '深圳市科技创新有限公司',
+        unitPrice: 58000,
+        totalPrice: 290000,
+        deliveryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+        priceScore: 92,
+        deliveryScore: 75,
+        qualityScore: 90,
+        totalScore: 85.7,
+        rank: 2,
+      },
+      {
+        supplierId: 'supp_005',
+        supplierName: '北京市软件服务有限公司',
+        unitPrice: 62000,
+        totalPrice: 310000,
+        deliveryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+        priceScore: 85,
+        deliveryScore: 90,
+        qualityScore: 98,
+        totalScore: 91.0,
+        rank: 1,
+      },
+    ],
+    recommendedSupplierId: 'supp_005',
+    recommendationReason: '服务器设备属于关键基础设施，质量和售后至关重要。北京软件提供5年保修和7x24小时上门服务，虽然总价高2万元，但赠送一年运维服务（价值约3万元），实际收益更高。',
+    createdById: 'user_001',
+    createdAt: getRandomDate(8),
+  },
+  {
+    id: 'report_comp_004',
+    reportNo: 'CMP-2024-0004',
+    inquiryId: 'inquiry_004',
+    requirementId: 'req_004',
+    quotes: [
+      {
+        supplierId: 'supp_003',
+        supplierName: '东莞市原材料加工厂',
+        unitPrice: 4200,
+        totalPrice: 2100000,
+        deliveryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        priceScore: 90,
+        deliveryScore: 88,
+        qualityScore: 92,
+        totalScore: 90.0,
+        rank: 1,
+      },
+    ],
+    recommendedSupplierId: 'supp_003',
+    recommendationReason: '独家供应商，历史合作234单，总金额2,890万元，准时交货率96%，质量合格率98%。报价合理，建议继续合作。',
+    createdById: 'user_001',
+    createdAt: getRandomDate(15),
   },
 ];
 
@@ -822,5 +1151,224 @@ export const mockApprovalFlows: ApprovalFlow[] = [
     createdAt: getRandomDate(2),
   },
 ];
+
+let revenueCounter = 500;
+const generateRevenueNo = () => {
+  revenueCounter++;
+  return `REV-2024-${String(revenueCounter).padStart(6, '0')}`;
+};
+
+export const mockRevenueRecords: RevenueRecord[] = Array.from({ length: 100 }, (_, i) => {
+  const businessLine: { value: string; label: string } = getRandomElement(BUSINESS_LINES);
+  const channel: { value: string; label: string } = getRandomElement(CHANNELS);
+  const statuses: ReconciliationStatus[] = ['pending', 'matched', 'diff', 'reconciled'];
+  const transactionDate = getRandomDate(60);
+  const customerName = `客户${i + 1}`;
+  const transactionNo = `TXN${Date.now()}${i.toString().padStart(4, '0')}`;
+  
+  return {
+    id: `rev_${i + 1}`,
+    revenueNo: generateRevenueNo(),
+    businessLine: businessLine.value,
+    channel: channel.value,
+    amount: Math.floor(Math.random() * 50000) + 1000,
+    currency: 'CNY',
+    transactionDate,
+    transactionId: `TXN${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+    transactionNo,
+    transactionTime: transactionDate,
+    customerName,
+    customer: customerName,
+    description: `${businessLine.label} - ${channel.label}`,
+    reconciliationStatus: getRandomElement(statuses),
+    splitDetails: [],
+    createdById: 'user_001',
+    createdAt: getRandomDate(60),
+    updatedAt: getRandomDate(30),
+  };
+});
+
+let settlementCounter = 100;
+const generateSettlementNo = () => {
+  settlementCounter++;
+  return `SET-2024-${String(settlementCounter).padStart(4, '0')}`;
+};
+
+export const mockSettlements: Settlement[] = Array.from({ length: 20 }, (_, i) => {
+  const businessLine: { value: string; label: string } = getRandomElement(BUSINESS_LINES);
+  const statuses: SettlementStatus[] = ['draft', 'pending_approval', 'approved', 'completed'];
+  const status = getRandomElement(statuses);
+  const totalAmount = Math.floor(Math.random() * 200000) + 50000;
+  
+  return {
+    id: `set_${i + 1}`,
+    settlementNo: generateSettlementNo(),
+    businessLine: businessLine.value,
+    settlementDate: getRandomDate(30),
+    totalAmount,
+    currency: 'CNY',
+    status,
+    revenueIds: [],
+    splitDetails: [],
+    paymentInstructions: [],
+    budgetThreshold: 100000,
+    overBudget: totalAmount > 100000,
+    createdById: 'user_001',
+    createdAt: getRandomDate(30),
+    updatedAt: getRandomDate(15),
+  };
+});
+
+let splitRuleCounter = 50;
+const generateSplitRuleNo = () => {
+  splitRuleCounter++;
+  return `SR-${String(splitRuleCounter).padStart(4, '0')}`;
+};
+
+export const mockSplitRules: SplitRule[] = [
+  {
+    id: 'sr_001',
+    ruleNo: generateSplitRuleNo(),
+    name: '电商业务分成规则',
+    description: '电商平台默认分成规则',
+    businessLine: 'ecommerce',
+    effectiveStartDate: new Date('2024-01-01'),
+    effectiveDate: new Date('2024-01-01'),
+    expiryDate: undefined,
+    status: 'active',
+    ratios: { 'partner_001': 0.7, 'partner_002': 0.2, 'platform': 0.1 },
+    recipients: [
+      { recipientId: 'partner_001', recipientName: '合作伙伴A', recipientType: 'partner', ratio: 0.7 },
+      { recipientId: 'partner_002', recipientName: '合作伙伴B', recipientType: 'partner', ratio: 0.2 },
+      { recipientId: 'platform', recipientName: '平台', recipientType: 'platform', ratio: 0.1 },
+    ],
+    version: 1,
+    createdById: 'user_001',
+    createdBy: 'user_001',
+    approvalFlowId: 'af_001',
+    approvedById: 'user_004',
+    approvedAt: new Date('2024-01-15'),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-15'),
+  },
+  {
+    id: 'sr_002',
+    ruleNo: generateSplitRuleNo(),
+    name: '零售业务分成规则',
+    description: '线下门店分成规则',
+    businessLine: 'retail',
+    effectiveStartDate: new Date('2024-01-01'),
+    effectiveDate: new Date('2024-01-01'),
+    expiryDate: undefined,
+    status: 'active',
+    ratios: { 'partner_003': 0.6, 'internal': 0.3, 'platform': 0.1 },
+    recipients: [
+      { recipientId: 'partner_003', recipientName: '门店运营商', recipientType: 'partner', ratio: 0.6 },
+      { recipientId: 'internal', recipientName: '内部团队', recipientType: 'internal', ratio: 0.3 },
+      { recipientId: 'platform', recipientName: '平台', recipientType: 'platform', ratio: 0.1 },
+    ],
+    version: 2,
+    createdById: 'user_001',
+    createdBy: 'user_001',
+    approvalFlowId: 'af_002',
+    approvedById: 'user_004',
+    approvedAt: new Date('2024-02-01'),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-02-01'),
+  },
+];
+
+export const mockSplitRuleHistories: SplitRuleHistory[] = [
+  {
+    id: 'srh_001',
+    ruleId: 'sr_002',
+    version: 2,
+    action: 'updated',
+    oldRatios: { 'partner_003': 0.5, 'internal': 0.35, 'platform': 0.15 },
+    newRatios: { 'partner_003': 0.6, 'internal': 0.3, 'platform': 0.1 },
+    changedById: 'user_001',
+    changedBy: 'user_001',
+    changedAt: new Date('2024-02-01'),
+    createdAt: new Date('2024-02-01'),
+    changeReason: '业务调整',
+    remark: '调整分成比例',
+  },
+];
+
+export const generatePaymentInstructions = (settlementId: string, amount: number): PaymentInstruction[] => {
+  return [
+    {
+      id: `pi_${Date.now()}_1`,
+      instructionNo: `PI-${Date.now().toString().slice(-8)}_01`,
+      settlementId,
+      recipientId: 'partner_001',
+      recipientName: '合作伙伴A',
+      bankAccount: '7559 1234 5678 9012',
+      bankName: '招商银行深圳分行',
+      amount: amount * 0.7,
+      currency: 'CNY',
+      status: 'pending',
+      createdById: 'user_001',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: `pi_${Date.now()}_2`,
+      instructionNo: `PI-${Date.now().toString().slice(-8)}_02`,
+      settlementId,
+      recipientId: 'partner_002',
+      recipientName: '合作伙伴B',
+      bankAccount: '3602 8765 4321 0987',
+      bankName: '工商银行广州分行',
+      amount: amount * 0.2,
+      currency: 'CNY',
+      status: 'pending',
+      createdById: 'user_001',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ];
+};
+
+export const generateSplitDetails = (settlementId: string, revenueIds: string[], totalAmount: number): SplitDetail[] => {
+  return revenueIds.map((revenueId, index) => ({
+    id: `sd_${settlementId}_${index}`,
+    settlementId,
+    revenueId,
+    recipientId: 'partner_001',
+    recipientName: '合作伙伴A',
+    recipientType: 'partner' as const,
+    amount: (totalAmount / revenueIds.length) * 0.7,
+    ratio: 0.7,
+    splitRuleId: 'sr_001',
+    splitRuleName: '电商业务分成规则',
+    createdAt: new Date(),
+  }));
+};
+
+export const generateApprovalNodes = (flowId: string): ApprovalNode[] => {
+  return [
+    {
+      id: `an_${flowId}_1`,
+      flowId,
+      level: 1,
+      approverRole: 'finance',
+      approverId: 'user_003',
+      status: 'approved',
+      comment: '单据齐全，同意支付',
+      approvedAt: getRandomDate(5),
+    },
+    {
+      id: `an_${flowId}_2`,
+      flowId,
+      level: 2,
+      approverRole: 'finance_director',
+      approverId: 'user_004',
+      status: 'pending',
+    },
+  ];
+};
+
+export const mockOperationLogs = mockLogs;
 
 export { formatMoney, generateId, getRandomDate, getRandomFutureDate, getRandomElement };

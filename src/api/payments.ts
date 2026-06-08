@@ -1,5 +1,5 @@
 import type { Payment, PaginatedResponse } from '@shared/types';
-import { get, post, put } from './client';
+import { get, post, put, del } from './client';
 import { mockPayments, delay } from '../utils/mock';
 
 export interface PaymentQueryParams {
@@ -115,21 +115,28 @@ export const submitPayment = async (id: string): Promise<Payment> => {
   }
 };
 
-export const markAsPaid = async (id: string, data: { 
-  actualPaidDate: Date; 
-  remark?: string 
-}): Promise<Payment> => {
+export const markAsPaid = async (id: string, actualPaidDate?: Date): Promise<Payment> => {
   try {
-    return await post<Payment>(`/payments/${id}/paid`, data);
+    return await post<Payment>(`/payments/${id}/paid`, { actualPaidDate });
   } catch {
     const payment = mockPayments.find(p => p.id === id);
     if (!payment) throw new Error('付款单不存在');
     return delay({ 
       ...payment, 
       status: 'paid', 
-      actualPaidDate: data.actualPaidDate,
+      actualPaidDate: actualPaidDate || new Date(),
       updatedAt: new Date() 
     });
+  }
+};
+
+export const approvePayment = async (id: string): Promise<Payment> => {
+  try {
+    return await post<Payment>(`/payments/${id}/approve`);
+  } catch {
+    const payment = mockPayments.find(p => p.id === id);
+    if (!payment) throw new Error('付款单不存在');
+    return delay({ ...payment, status: 'approved', updatedAt: new Date() });
   }
 };
 
@@ -140,6 +147,25 @@ export const rejectPayment = async (id: string, reason: string): Promise<Payment
     const payment = mockPayments.find(p => p.id === id);
     if (!payment) throw new Error('付款单不存在');
     return delay({ ...payment, status: 'rejected', updatedAt: new Date() });
+  }
+};
+
+export const deletePayment = async (id: string): Promise<void> => {
+  try {
+    await del<void>(`/payments/${id}`);
+  } catch {
+    const index = mockPayments.findIndex(p => p.id === id);
+    if (index === -1) throw new Error('付款单不存在');
+    mockPayments.splice(index, 1);
+    return delay(void 0);
+  }
+};
+
+export const exportPayments = async (params?: PaymentQueryParams): Promise<Blob> => {
+  try {
+    return await get<Blob>('/payments/export', { params, responseType: 'blob' });
+  } catch {
+    return delay(new Blob());
   }
 };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, Eye, EyeOff, Wallet, Loader2 } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Package, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { cn } from '@/lib/utils';
 
@@ -59,27 +59,27 @@ export default function Login() {
 
         <div className="relative z-10 flex flex-col justify-center items-center w-full px-16 text-white">
           <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-8 shadow-2xl animate-pulse-soft">
-            <Wallet className="w-10 h-10 text-white" />
+            <Package className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold mb-4 text-center animate-slide-up">
-            收入分成与结算管理系统
+            企业采购与供应商协同管理平台
           </h1>
           <p className="text-lg text-white/80 text-center max-w-md mb-12 animate-slide-up" style={{ animationDelay: '100ms' }}>
-            高效、智能、安全的企业级收入分成与结算管理平台，助力企业财务管理数字化转型
+            全流程数字化采购管理，智能供应商协同，助力企业采购供应链转型升级
           </p>
 
           <div className="grid grid-cols-3 gap-8 w-full max-w-lg animate-slide-up" style={{ animationDelay: '200ms' }}>
             <div className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-              <p className="text-3xl font-bold">99.9%</p>
-              <p className="text-sm text-white/70 mt-1">对账准确率</p>
+              <p className="text-3xl font-bold">98%</p>
+              <p className="text-sm text-white/70 mt-1">准时交付率</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-              <p className="text-3xl font-bold">100%</p>
-              <p className="text-sm text-white/70 mt-1">数据安全</p>
+              <p className="text-3xl font-bold">30%</p>
+              <p className="text-sm text-white/70 mt-1">成本节约</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-              <p className="text-3xl font-bold">80%</p>
-              <p className="text-sm text-white/70 mt-1">效率提升</p>
+              <p className="text-3xl font-bold">200+</p>
+              <p className="text-sm text-white/70 mt-1">优质供应商</p>
             </div>
           </div>
         </div>
@@ -89,9 +89,9 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="lg:hidden flex flex-col items-center mb-10">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mb-4 shadow-xl shadow-primary-500/30">
-              <Wallet className="w-8 h-8 text-white" />
+              <Package className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-neutral-800">收入分成与结算管理系统</h2>
+            <h2 className="text-2xl font-bold text-neutral-800">企业采购与供应商协同管理平台</h2>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl shadow-neutral-200/50 p-8 border border-neutral-100 animate-fade-in">
@@ -213,7 +213,7 @@ export default function Login() {
 
           <div className="mt-8 text-center">
             <p className="text-xs text-neutral-400">
-              © 2024 收入分成与结算管理系统. 保留所有权利.
+              © 2024 企业采购与供应商协同管理平台. 保留所有权利.
             </p>
           </div>
         </div>

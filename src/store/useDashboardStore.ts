@@ -10,6 +10,8 @@ interface DashboardState {
   monthlyReports: MonthlyReport[];
   purchaseTrend: { date: string; amount: number }[];
   purchaseByCategory: { category: string; categoryName: string; amount: number; percentage: number }[];
+  revenueTrend: { date: string; amount: number }[];
+  revenueByBusinessLine: { businessLine: string; businessLineName: string; amount: number; percentage: number }[];
   alerts: SystemAlert[];
   loading: boolean;
   error: string | null;
@@ -29,6 +31,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   monthlyReports: [],
   purchaseTrend: [],
   purchaseByCategory: [],
+  revenueTrend: [],
+  revenueByBusinessLine: [],
   alerts: [],
   loading: false,
   error: null,
@@ -121,6 +125,40 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         get().fetchPurchaseByCategory({ startDate, endDate }),
         get().fetchAlerts({ limit: 8 }),
       ]);
+      
+      const days = 30;
+      const trend = [];
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        trend.push({
+          date: date.toISOString().split('T')[0],
+          amount: Math.floor(Math.random() * 500000) + 100000,
+        });
+      }
+      set({ revenueTrend: trend });
+      
+      const businessLines = [
+        { value: 'ecommerce', label: '电商业务' },
+        { value: 'retail', label: '零售业务' },
+        { value: 'wholesale', label: '批发业务' },
+        { value: 'services', label: '服务业务' },
+        { value: 'international', label: '国际业务' },
+      ];
+      const totalAmount = 5000000;
+      const revenueData = businessLines.map(bl => ({
+        businessLine: bl.value,
+        businessLineName: bl.label,
+        amount: Math.floor(Math.random() * 2000000) + 500000,
+        percentage: 0,
+      }));
+      const total = revenueData.reduce((sum, r) => sum + r.amount, 0);
+      revenueData.forEach(r => {
+        r.percentage = total > 0 ? r.amount / total : 0;
+      });
+      set({ revenueByBusinessLine: revenueData });
+      
       set({ loading: false });
     } catch (error) {
       set({

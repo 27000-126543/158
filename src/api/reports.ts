@@ -59,18 +59,25 @@ export const getPurchaseTrend = async (params: { startDate: string; endDate: str
   }
 };
 
-export const getPurchaseByCategory = async (params: { startDate: string; endDate: string }): Promise<{ category: string; amount: number; percentage: number }[]> => {
+export const getPurchaseByCategory = async (params: { startDate: string; endDate: string }): Promise<{ category: string; categoryName: string; amount: number; percentage: number }[]> => {
   try {
-    return await get<{ category: string; amount: number; percentage: number }[]>('/reports/purchase-by-category', { params });
+    return await get<{ category: string; categoryName: string; amount: number; percentage: number }[]>('/reports/purchase-by-category', { params });
   } catch {
-    const categories = ['it_equipment', 'raw_materials', 'office_supplies', 'software', 'packaging', 'marketing'];
+    const categories = [
+      { value: 'it_equipment', label: 'IT设备' },
+      { value: 'raw_materials', label: '原材料' },
+      { value: 'office_supplies', label: '办公用品' },
+      { value: 'software', label: '软件服务' },
+      { value: 'packaging', label: '包装材料' },
+      { value: 'marketing', label: '市场营销' },
+    ];
     const result = categories.map(cat => {
       const catOrders = mockOrders.filter(o => 
         new Date(o.createdAt) >= new Date(params.startDate) &&
         new Date(o.createdAt) <= new Date(params.endDate)
       );
       const amount = catOrders.reduce((sum, o) => sum + o.totalAmount, 0) * (0.1 + Math.random() * 0.4);
-      return { category: cat, amount: Math.round(amount), percentage: 0 };
+      return { category: cat.value, categoryName: cat.label, amount: Math.round(amount), percentage: 0 };
     });
     
     const total = result.reduce((sum, r) => sum + r.amount, 0);
@@ -122,36 +129,81 @@ export const getOrderStats = async (params: { startDate: string; endDate: string
   }
 };
 
-export const getSupplierStats = async (params: { startDate: string; endDate: string }): Promise<{
+export const getPurchaseStats = async (params: { startDate: string; endDate: string }): Promise<{
+  totalPurchaseAmount: number;
+  monthPurchaseAmount: number;
+  totalOrders: number;
+  monthOrders: number;
+  activeSuppliers: number;
+  pendingApprovals: number;
+}> => {
+  try {
+    return await get<{
+      totalPurchaseAmount: number;
+      monthPurchaseAmount: number;
+      totalOrders: number;
+      monthOrders: number;
+      activeSuppliers: number;
+      pendingApprovals: number;
+    }>('/reports/purchase-stats', { params });
+  } catch {
+    const filtered = mockOrders.filter(o => 
+      new Date(o.createdAt) >= new Date(params.startDate) &&
+      new Date(o.createdAt) <= new Date(params.endDate)
+    );
+    
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthOrders = mockOrders.filter(o => new Date(o.createdAt) >= monthStart);
+    const activeSuppliers = mockSuppliers.filter(s => s.status === 'active');
+    
+    return delay({
+      totalPurchaseAmount: filtered.reduce((sum, o) => sum + o.totalAmount, 0),
+      monthPurchaseAmount: monthOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+      totalOrders: filtered.length,
+      monthOrders: monthOrders.length,
+      activeSuppliers: activeSuppliers.length,
+      pendingApprovals: 7,
+    });
+  }
+};
+
+export const getSupplierStats = async (): Promise<{
   totalSuppliers: number;
   activeSuppliers: number;
-  averagePerformance: number;
-  onTimeDeliveryRate: number;
-  qualityPassRate: number;
+  averageRating: number;
+  excellentCount: number;
+  goodCount: number;
+  averageCount: number;
+  poorCount: number;
 }> => {
   try {
     return await get<{
       totalSuppliers: number;
       activeSuppliers: number;
-      averagePerformance: number;
-      onTimeDeliveryRate: number;
-      qualityPassRate: number;
-    }>('/reports/supplier-stats', { params });
+      averageRating: number;
+      excellentCount: number;
+      goodCount: number;
+      averageCount: number;
+      poorCount: number;
+    }>('/reports/supplier-stats');
   } catch {
     const activeSuppliers = mockSuppliers.filter(s => s.status === 'active');
     
     return delay({
       totalSuppliers: mockSuppliers.length,
       activeSuppliers: activeSuppliers.length,
-      averagePerformance: activeSuppliers.reduce((sum, s) => sum + s.performanceScore, 0) / activeSuppliers.length,
-      onTimeDeliveryRate: activeSuppliers.reduce((sum, s) => sum + s.onTimeDeliveryRate, 0) / activeSuppliers.length,
-      qualityPassRate: activeSuppliers.reduce((sum, s) => sum + s.qualityPassRate, 0) / activeSuppliers.length,
+      averageRating: activeSuppliers.reduce((sum, s) => sum + s.performanceScore, 0) / activeSuppliers.length,
+      excellentCount: mockSuppliers.filter(s => s.performanceLevel === 'excellent').length,
+      goodCount: mockSuppliers.filter(s => s.performanceLevel === 'good').length,
+      averageCount: mockSuppliers.filter(s => s.performanceLevel === 'average').length,
+      poorCount: mockSuppliers.filter(s => s.performanceLevel === 'poor').length,
     });
   }
 };
 
 export const getPaymentStats = async (params: { startDate: string; endDate: string }): Promise<{
-  total: number;
+  totalPayments: number;
   pending: number;
   approved: number;
   paid: number;
@@ -159,11 +211,10 @@ export const getPaymentStats = async (params: { startDate: string; endDate: stri
   totalAmount: number;
   paidAmount: number;
   overdueCount: number;
-  overdueAmount: number;
 }> => {
   try {
     return await get<{
-      total: number;
+      totalPayments: number;
       pending: number;
       approved: number;
       paid: number;
@@ -171,7 +222,6 @@ export const getPaymentStats = async (params: { startDate: string; endDate: stri
       totalAmount: number;
       paidAmount: number;
       overdueCount: number;
-      overdueAmount: number;
     }>('/reports/payment-stats', { params });
   } catch {
     const filtered = mockPayments.filter(p => 
@@ -183,7 +233,7 @@ export const getPaymentStats = async (params: { startDate: string; endDate: stri
     const overdue = filtered.filter(p => p.status !== 'paid' && new Date(p.dueDate) < now);
     
     return delay({
-      total: filtered.length,
+      totalPayments: filtered.length,
       pending: filtered.filter(p => p.status === 'pending').length,
       approved: filtered.filter(p => p.status === 'approved').length,
       paid: filtered.filter(p => p.status === 'paid').length,
@@ -191,7 +241,6 @@ export const getPaymentStats = async (params: { startDate: string; endDate: stri
       totalAmount: filtered.reduce((sum, p) => sum + p.amount, 0),
       paidAmount: filtered.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
       overdueCount: overdue.length,
-      overdueAmount: overdue.reduce((sum, p) => sum + p.amount, 0),
     });
   }
 };

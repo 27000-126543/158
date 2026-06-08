@@ -1,3 +1,7 @@
+/**
+ * @deprecated 此页面属于旧的收入分成与结算管理系统，当前项目为采购管理系统
+ * 此页面已不再使用，保留仅作历史参考
+ */
 import React, { useEffect, useState } from 'react';
 import {
   Card,

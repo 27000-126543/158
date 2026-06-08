@@ -122,6 +122,8 @@ export const submitPurchase = async (id: string): Promise<PurchaseRequirement> =
   }
 };
 
+export const submitForApproval = submitPurchase;
+
 export const exportPurchase = async (params: PurchaseQueryParams): Promise<Blob> => {
   try {
     return await get<Blob>('/purchases/export', { params, responseType: 'blob' });
@@ -129,3 +131,5 @@ export const exportPurchase = async (params: PurchaseQueryParams): Promise<Blob>
     return delay(new Blob());
   }
 };
+
+export const exportPurchases = exportPurchase;

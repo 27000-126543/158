@@ -1,5 +1,5 @@
 import type { Inquiry, Quote, ComparisonReport, PaginatedResponse } from '@shared/types';
-import { get, post, put } from './client';
+import { get, post, put, del } from './client';
 import { mockInquiries, mockQuotes, mockComparisonReports, delay } from '../utils/mock';
 
 export interface InquiryQueryParams {
@@ -123,14 +123,14 @@ export const getQuotes = async (inquiryId: string): Promise<Quote[]> => {
   }
 };
 
-export const submitQuote = async (inquiryId: string, data: Partial<Quote>): Promise<Quote> => {
+export const submitQuote = async (data: Partial<Quote>): Promise<Quote> => {
   try {
-    return await post<Quote>(`/inquiries/${inquiryId}/quotes`, data);
+    return await post<Quote>(`/inquiries/${data.inquiryId}/quotes`, data);
   } catch {
     const newQuote: Quote = {
       id: `quote_${Date.now()}`,
       quoteNo: `QTE-${Date.now().toString().slice(-8)}`,
-      inquiryId,
+      inquiryId: data.inquiryId || '',
       supplierId: data.supplierId || '',
       unitPrice: data.unitPrice || 0,
       totalPrice: data.totalPrice || 0,
@@ -198,9 +198,43 @@ export const selectSupplier = async (inquiryId: string, supplierId: string): Pro
   }
 };
 
+export const deleteInquiry = async (id: string): Promise<void> => {
+  try {
+    await del<void>(`/inquiries/${id}`);
+  } catch {
+    return delay(undefined);
+  }
+};
+
+export const getQuotesByInquiryId = getQuotes;
+
+export const selectQuote = async (inquiryId: string, quoteId: string): Promise<ComparisonReport> => {
+  try {
+    return await post<ComparisonReport>(`/inquiries/${inquiryId}/select-quote`, { quoteId });
+  } catch {
+    return generateComparisonReport(inquiryId);
+  }
+};
+
+export const createOrderFromInquiry = async (inquiryId: string, supplierId: string): Promise<{ orderId: string }> => {
+  try {
+    return await post<{ orderId: string }>(`/inquiries/${inquiryId}/create-order`, { supplierId });
+  } catch {
+    return delay({ orderId: `po_${Date.now()}` });
+  }
+};
+
 export const exportInquiry = async (id: string): Promise<Blob> => {
   try {
     return await get<Blob>(`/inquiries/${id}/export`, { responseType: 'blob' });
+  } catch {
+    return delay(new Blob());
+  }
+};
+
+export const exportInquiries = async (params: InquiryQueryParams): Promise<Blob> => {
+  try {
+    return await get<Blob>('/inquiries/export', { params, responseType: 'blob' });
   } catch {
     return delay(new Blob());
   }

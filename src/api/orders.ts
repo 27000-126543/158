@@ -1,5 +1,5 @@
 import type { PurchaseOrder, PaginatedResponse } from '@shared/types';
-import { get, post, put } from './client';
+import { get, post, put, del } from './client';
 import { mockOrders, delay } from '../utils/mock';
 
 export interface OrderQueryParams {
@@ -120,21 +120,39 @@ export const confirmOrder = async (id: string): Promise<PurchaseOrder> => {
   }
 };
 
-export const updateLogistics = async (id: string, data: { 
-  logisticsStatus: string; 
-  trackingNumber?: string; 
-  shippingCompany?: string 
-}): Promise<PurchaseOrder> => {
+export const deleteOrder = async (id: string): Promise<void> => {
   try {
-    return await post<PurchaseOrder>(`/orders/${id}/logistics`, data);
+    await del<void>(`/orders/${id}`);
+  } catch {
+    return delay(undefined);
+  }
+};
+
+export const updateLogistics = async (id: string, trackingNumber: string, shippingCompany: string): Promise<PurchaseOrder> => {
+  try {
+    return await post<PurchaseOrder>(`/orders/${id}/logistics`, { trackingNumber, shippingCompany });
   } catch {
     const order = mockOrders.find(o => o.id === id);
     if (!order) throw new Error('采购订单不存在');
     return delay({ 
       ...order, 
-      logisticsStatus: data.logisticsStatus as any,
-      trackingNumber: data.trackingNumber,
-      shippingCompany: data.shippingCompany,
+      logisticsStatus: 'shipped' as any,
+      trackingNumber,
+      shippingCompany,
+      updatedAt: new Date() 
+    });
+  }
+};
+
+export const updateLogisticsStatus = async (id: string, status: string): Promise<PurchaseOrder> => {
+  try {
+    return await post<PurchaseOrder>(`/orders/${id}/logistics-status`, { status });
+  } catch {
+    const order = mockOrders.find(o => o.id === id);
+    if (!order) throw new Error('采购订单不存在');
+    return delay({ 
+      ...order, 
+      logisticsStatus: status as any,
       updatedAt: new Date() 
     });
   }
@@ -163,6 +181,14 @@ export const cancelOrder = async (id: string, reason: string): Promise<PurchaseO
 export const exportOrder = async (id: string): Promise<Blob> => {
   try {
     return await get<Blob>(`/orders/${id}/export`, { responseType: 'blob' });
+  } catch {
+    return delay(new Blob());
+  }
+};
+
+export const exportOrders = async (params: OrderQueryParams): Promise<Blob> => {
+  try {
+    return await get<Blob>('/orders/export', { params, responseType: 'blob' });
   } catch {
     return delay(new Blob());
   }

@@ -1,3 +1,7 @@
+/**
+ * @deprecated 此页面属于旧的收入分成与结算管理系统，当前项目为采购管理系统
+ * 此页面已不再使用，保留仅作历史参考
+ */
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -89,8 +93,6 @@ export default function SettlementDetail() {
   const loadData = async (settlementId: string) => {
     try {
       await fetchDetail(settlementId);
-      const instructions = generatePaymentInstructions(settlementId);
-      setPaymentInstructionsList(instructions);
 
       const revenues = mockRevenueRecords.slice(0, 10).map((r) => ({
         ...r,
@@ -99,10 +101,14 @@ export default function SettlementDetail() {
       setRevenueList(revenues);
 
       const totalAmount = revenues.reduce((sum, r) => sum + r.amount, 0);
-      const splits = generateSplitDetails(totalAmount, 'ecommerce');
+      const instructions = generatePaymentInstructions(settlementId, totalAmount);
+      setPaymentInstructionsList(instructions);
+
+      const revenueIds = revenues.map(r => r.id);
+      const splits = generateSplitDetails(settlementId, revenueIds, totalAmount);
       setSplitDetails(splits);
 
-      const nodes = generateApprovalNodes(uuidv4(), 2);
+      const nodes = generateApprovalNodes(uuidv4());
       setApprovalNodes(nodes);
     } catch (error) {
       message.error('加载数据失败');

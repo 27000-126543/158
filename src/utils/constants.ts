@@ -13,6 +13,11 @@ import type {
   ApprovalStatus,
   AlertLevel,
   AlertType,
+  ReconciliationStatus,
+  SettlementStatus,
+  RuleStatus,
+  DiffType,
+  DiffStatus,
 } from '@shared/types';
 
 export const CATEGORIES = [
@@ -184,3 +189,67 @@ export const PAYMENT_APPROVAL_THRESHOLDS = {
   FINANCE_DIRECTOR: 500000,
   CEO: 2000000,
 };
+
+export const BUSINESS_LINES: { value: string; label: string }[] = [
+  { value: 'ecommerce', label: '电商业务' },
+  { value: 'retail', label: '零售业务' },
+  { value: 'wholesale', label: '批发业务' },
+  { value: 'services', label: '服务业务' },
+  { value: 'international', label: '国际业务' },
+];
+
+export const CHANNELS: { value: string; label: string }[] = [
+  { value: 'online_store', label: '官方商城' },
+  { value: 'taobao', label: '淘宝' },
+  { value: 'jd', label: '京东' },
+  { value: 'pdd', label: '拼多多' },
+  { value: 'douyin', label: '抖音' },
+  { value: 'offline', label: '线下门店' },
+  { value: 'distributor', label: '经销商' },
+];
+
+export const RECONCILIATION_STATUS: { value: ReconciliationStatus; label: string; color: string }[] = [
+  { value: 'pending', label: '待对账', color: 'orange' },
+  { value: 'matched', label: '已匹配', color: 'green' },
+  { value: 'diff', label: '有差异', color: 'red' },
+  { value: 'reconciled', label: '已调账', color: 'blue' },
+  { value: 'ignored', label: '已忽略', color: 'default' },
+];
+
+export const SETTLEMENT_STATUS: { value: SettlementStatus; label: string; color: string }[] = [
+  { value: 'draft', label: '草稿', color: 'default' },
+  { value: 'pending_approval', label: '待审批', color: 'orange' },
+  { value: 'approved', label: '已审批', color: 'blue' },
+  { value: 'rejected', label: '已驳回', color: 'red' },
+  { value: 'processing', label: '处理中', color: 'purple' },
+  { value: 'completed', label: '已完成', color: 'green' },
+  { value: 'failed', label: '已失败', color: 'red' },
+];
+
+export const RULE_STATUS: { value: RuleStatus; label: string; color: string }[] = [
+  { value: 'active', label: '生效中', color: 'green' },
+  { value: 'inactive', label: '已停用', color: 'default' },
+  { value: 'draft', label: '草稿', color: 'orange' },
+  { value: 'pending_approval', label: '待审批', color: 'orange' },
+];
+
+export const DIFF_TYPES: { value: DiffType; label: string }[] = [
+  { value: 'amount_mismatch', label: '金额不匹配' },
+  { value: 'missing_revenue', label: '缺收入记录' },
+  { value: 'missing_transaction', label: '缺银行流水' },
+  { value: 'date_mismatch', label: '日期不匹配' },
+  { value: 'duplicate', label: '重复记录' },
+];
+
+export const DIFF_STATUS: { value: DiffStatus; label: string; color: string }[] = [
+  { value: 'open', label: '待处理', color: 'red' },
+  { value: 'assigned', label: '已指派', color: 'orange' },
+  { value: 'resolved', label: '已解决', color: 'green' },
+  { value: 'closed', label: '已关闭', color: 'default' },
+];
+
+export const BANK_MATCH_STATUS: { value: string; label: string; color: string }[] = [
+  { value: 'matched', label: '已匹配', color: 'green' },
+  { value: 'unmatched', label: '未匹配', color: 'red' },
+  { value: 'partial', label: '部分匹配', color: 'orange' },
+];

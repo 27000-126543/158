@@ -1,20 +1,21 @@
 import ReactECharts from 'echarts-for-react';
 import { formatCurrency, formatPercent } from '../../utils/format';
-import { BUSINESS_LINES } from '../../utils/constants';
+import { BUSINESS_LINES, CATEGORIES } from '../../utils/constants';
 
 interface BusinessLinePieChartProps {
   data: { businessLine: string; amount: number; percentage: number }[];
   height?: number;
 }
 
-const COLORS = ['#165DFF', '#00B42A', '#FF7D00', '#722ED1', '#F53F3F'];
+const COLORS = ['#165DFF', '#00B42A', '#FF7D00', '#722ED1', '#F53F3F', '#00BFBC', '#FFC72E', '#F7BA1E'];
 
 export default function BusinessLinePieChart({ data, height = 350 }: BusinessLinePieChartProps) {
   const chartData = data.map((item, index) => {
     const lineInfo = BUSINESS_LINES.find(l => l.value === item.businessLine);
+    const categoryInfo = CATEGORIES.find(c => c.value === item.businessLine);
     return {
       value: item.amount,
-      name: lineInfo?.label || item.businessLine,
+      name: lineInfo?.label || categoryInfo?.label || item.businessLine,
       itemStyle: {
         color: COLORS[index % COLORS.length],
       },

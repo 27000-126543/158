@@ -1,13 +1,13 @@
 import ReactECharts from 'echarts-for-react';
 import { formatCurrency, formatPercent } from '../../utils/format';
-import { BUSINESS_LINES } from '../../utils/constants';
+import { BUSINESS_LINES, CATEGORIES } from '../../utils/constants';
 
 interface BusinessLineBarChartProps {
   data: { businessLine: string; amount: number; percentage: number }[];
   height?: number;
 }
 
-const COLORS = ['#165DFF', '#00B42A', '#FF7D00', '#722ED1', '#F53F3F'];
+const COLORS = ['#165DFF', '#00B42A', '#FF7D00', '#722ED1', '#F53F3F', '#00BFBC', '#FFC72E', '#F7BA1E'];
 
 export default function BusinessLineBarChart({ data, height = 350 }: BusinessLineBarChartProps) {
   const sortedData = [...data].sort((a, b) => b.amount - a.amount);
@@ -35,7 +35,7 @@ export default function BusinessLineBarChart({ data, height = 350 }: BusinessLin
         return `<div style="font-weight: 600; margin-bottom: 8px;">${param.name}</div>
           <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${param.color};"></span>
-            <span>收入:</span>
+            <span>金额:</span>
             <span style="font-weight: 600;">${formatCurrency(dataItem.amount)}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
@@ -56,7 +56,8 @@ export default function BusinessLineBarChart({ data, height = 350 }: BusinessLin
       type: 'category',
       data: sortedData.map(item => {
         const lineInfo = BUSINESS_LINES.find(l => l.value === item.businessLine);
-        return lineInfo?.label || item.businessLine;
+        const categoryInfo = CATEGORIES.find(c => c.value === item.businessLine);
+        return lineInfo?.label || categoryInfo?.label || item.businessLine;
       }),
       axisLine: {
         lineStyle: {

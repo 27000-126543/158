@@ -218,6 +218,9 @@ export default function SystemUsers() {
           business_manager: 'green',
           finance_director: 'purple',
           admin: 'red',
+          buyer: 'cyan',
+          supplier: 'orange',
+          ceo: 'magenta',
         };
         return <Tag color={colorMap[role]}>{roleInfo?.label || role}</Tag>;
       },

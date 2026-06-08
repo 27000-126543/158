@@ -1,3 +1,7 @@
+/**
+ * @deprecated 此页面属于旧的收入分成与结算管理系统，当前项目为采购管理系统
+ * 此页面已不再使用，保留仅作历史参考
+ */
 import { useEffect, useState } from 'react';
 import {
   Card,
@@ -29,7 +33,7 @@ import {
   RiseOutlined,
   FallOutlined,
 } from '@ant-design/icons';
-import type { SplitRule, SplitRuleHistory } from '@shared/types';
+import type { SplitRule, SplitRuleHistory, RuleStatus } from '@shared/types';
 import { useSplitRulesStore } from '../store/useSplitRulesStore';
 import {
   BUSINESS_LINES,
@@ -216,12 +220,13 @@ export default function SplitRules() {
     const statusLabel = getStatusLabel(rule.status, RULE_STATUS as any);
     const createdBy = mockUsers.find((u) => u.id === rule.createdBy);
 
+    const status = rule.status as RuleStatus;
     const statusIcon =
-      rule.status === 'active' ? (
+      status === 'active' ? (
         <CheckCircleOutlined className="text-green-500" />
-      ) : rule.status === 'pending_approval' ? (
+      ) : status === 'pending_approval' ? (
         <ClockCircleOutlined className="text-orange-500" />
-      ) : rule.status === 'inactive' ? (
+      ) : status === 'inactive' ? (
         <ExclamationCircleOutlined className="text-gray-500" />
       ) : (
         <EditOutlined className="text-gray-500" />
@@ -391,7 +396,7 @@ export default function SplitRules() {
                     precision={4}
                     style={{ width: '100%' }}
                     formatter={(value) => `${(value ?? 0) * 100}%`}
-                    parser={(value) => parseFloat(value?.replace('%', '') || '0') / 100}
+                    parser={(value) => (parseFloat(value?.replace('%', '') || '0') / 100) as 0 | 1}
                     onChange={(value) => handleRatioChange(key, value ?? 0)}
                     status={hasLargeChange ? 'warning' : undefined}
                   />

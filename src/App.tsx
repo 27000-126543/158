@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import Layout from "@/components/layout/Layout";
 import Dashboard from "@/pages/Dashboard";
 import PurchaseRequirements from "@/pages/PurchaseRequirements";
+import PurchaseRequirementDetail from "@/pages/PurchaseRequirementDetail";
 import SupplierLibrary from "@/pages/SupplierLibrary";
 import SmartRecommend from "@/pages/SmartRecommend";
 import InquiryQuotation from "@/pages/InquiryQuotation";
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/purchase-requirements" element={<PurchaseRequirements />} />
+              <Route path="/purchase-requirements/:id" element={<PurchaseRequirementDetail />} />
               <Route path="/supplier-library" element={<SupplierLibrary />} />
               <Route path="/smart-recommend" element={<SmartRecommend />} />
               <Route path="/inquiry-quotation" element={<InquiryQuotation />} />

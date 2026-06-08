@@ -114,6 +114,26 @@ export const deleteSupplier = async (id: string): Promise<void> => {
   }
 };
 
+export const approveSupplier = async (id: string): Promise<Supplier> => {
+  try {
+    return await post<Supplier>(`/suppliers/${id}/approve`);
+  } catch {
+    const supplier = mockSuppliers.find(s => s.id === id);
+    if (!supplier) throw new Error('供应商不存在');
+    return delay({ ...supplier, status: 'active', updatedAt: new Date() });
+  }
+};
+
+export const blacklistSupplier = async (id: string, reason: string): Promise<Supplier> => {
+  try {
+    return await post<Supplier>(`/suppliers/${id}/blacklist`, { reason });
+  } catch {
+    const supplier = mockSuppliers.find(s => s.id === id);
+    if (!supplier) throw new Error('供应商不存在');
+    return delay({ ...supplier, status: 'blacklisted', updatedAt: new Date() });
+  }
+};
+
 export const exportSupplier = async (params: SupplierQueryParams): Promise<Blob> => {
   try {
     return await get<Blob>('/suppliers/export', { params, responseType: 'blob' });
@@ -121,3 +141,5 @@ export const exportSupplier = async (params: SupplierQueryParams): Promise<Blob>
     return delay(new Blob());
   }
 };
+
+export const exportSuppliers = exportSupplier;

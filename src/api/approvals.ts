@@ -179,6 +179,7 @@ export const createApproval = async (data: {
       status: 'pending',
       currentNode: 0,
       relatedId: data.relatedId,
+      relatedType: 'payment',
       nodes: [],
       createdAt: new Date(),
     };

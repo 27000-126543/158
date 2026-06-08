@@ -1,4 +1,4 @@
-export type UserRole = 'buyer' | 'supplier' | 'finance' | 'finance_director' | 'ceo' | 'admin';
+export type UserRole = 'buyer' | 'supplier' | 'finance' | 'finance_director' | 'ceo' | 'admin' | 'business_manager';
 
 export type PurchaseRequirementStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'inquiry_sent' | 'quoting' | 'quoted' | 'order_created';
 
@@ -16,7 +16,9 @@ export type ReceiptStatus = 'pending' | 'inspecting' | 'accepted' | 'rejected' |
 
 export type PaymentStatus = 'pending' | 'approved' | 'paid' | 'rejected' | 'processing';
 
-export type ApprovalFlowType = 'purchase_approval' | 'payment_approval' | 'supplier_approval';
+export type PaymentType = 'advance' | 'progress' | 'final' | 'deposit';
+
+export type ApprovalFlowType = 'purchase_approval' | 'payment_approval' | 'supplier_approval' | 'split_change' | 'over_budget' | 'special_reconciliation';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -191,7 +193,7 @@ export interface Payment {
   orderId: string;
   amount: number;
   currency: string;
-  paymentType: 'advance' | 'progress' | 'final' | 'deposit';
+  paymentType: PaymentType;
   dueDate: Date;
   actualPaidDate?: Date;
   status: PaymentStatus;
@@ -281,6 +283,11 @@ export interface DashboardStats {
   pendingApprovals: number;
   inventoryTurnover: number;
   onTimeDeliveryRate: number;
+  todayRevenue?: number;
+  monthRevenue?: number;
+  settlementProgress?: number;
+  diffRate?: number;
+  todayTransactions?: number;
 }
 
 export interface MonthlyReport {
@@ -297,6 +304,11 @@ export interface MonthlyReport {
     qualityPassRate: number;
     onTimePaymentRate: number;
   };
+  revenueTrend?: { date: string; amount: number }[];
+  revenueByBusinessLine?: { [key: string]: number };
+  splitRatioByBusinessLine?: { [key: string]: { [recipientId: string]: number } };
+  settlementAccuracy?: number;
+  noDiffRate?: number;
   createdAt: Date;
 }
 
@@ -309,4 +321,189 @@ export interface TaskInfo {
   status: 'running' | 'idle' | 'error';
   lastStatus?: 'success' | 'failed';
   description: string;
+}
+
+export type ReconciliationStatus = 'pending' | 'matched' | 'diff' | 'reconciled' | 'ignored';
+
+export type SettlementStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed';
+
+export type RuleStatus = 'active' | 'inactive' | 'draft' | 'pending_approval';
+
+export type DiffStatus = 'open' | 'assigned' | 'resolved' | 'closed';
+
+export type WorkOrderStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export type BankTransactionType = 'income' | 'expense' | 'transfer';
+
+export type DiffType = 'amount_mismatch' | 'missing_revenue' | 'missing_transaction' | 'date_mismatch' | 'duplicate';
+
+export interface RevenueRecord {
+  id: string;
+  revenueNo: string;
+  businessLine: string;
+  channel: string;
+  amount: number;
+  currency: string;
+  transactionDate: Date;
+  transactionId?: string;
+  transactionNo: string;
+  transactionTime: Date;
+  customerName?: string;
+  customer?: string;
+  description?: string;
+  reconciliationStatus: ReconciliationStatus;
+  reconciliationId?: string;
+  settlementId?: string;
+  splitDetails?: SplitDetail[];
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BankTransaction {
+  id: string;
+  transactionNo: string;
+  bankAccount: string;
+  amount: number;
+  currency: string;
+  transactionDate: Date;
+  transactionType: BankTransactionType;
+  counterparty?: string;
+  description?: string;
+  referenceNo?: string;
+  reconciliationStatus: ReconciliationStatus;
+  reconciliationId?: string;
+  createdAt: Date;
+}
+
+export interface ReconciliationDiff {
+  id: string;
+  diffNo: string;
+  reconciliationId: string;
+  revenueId?: string;
+  bankTransactionId?: string;
+  diffType: DiffType;
+  diffAmount: number;
+  status: DiffStatus;
+  assignee?: string;
+  workOrderId?: string;
+  resolution?: string;
+  resolvedAt?: Date;
+  resolvedById?: string;
+  reconciliationDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WorkOrder {
+  id: string;
+  workOrderNo: string;
+  diffId: string;
+  title: string;
+  description?: string;
+  status: WorkOrderStatus;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assignee?: string;
+  reporterId: string;
+  resolution?: string;
+  resolvedAt?: Date;
+  resolvedById?: string;
+  dueDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SplitDetail {
+  id: string;
+  settlementId: string;
+  revenueId: string;
+  recipientId: string;
+  recipientName: string;
+  recipientType: 'partner' | 'internal' | 'platform';
+  amount: number;
+  ratio: number;
+  splitRuleId?: string;
+  splitRuleName?: string;
+  createdAt: Date;
+}
+
+export interface PaymentInstruction {
+  id: string;
+  instructionNo: string;
+  settlementId: string;
+  recipientId: string;
+  recipientName: string;
+  bankAccount: string;
+  bankName: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  paymentDate?: Date;
+  paymentRef?: string;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Settlement {
+  id: string;
+  settlementNo: string;
+  businessLine: string;
+  settlementDate: Date;
+  totalAmount: number;
+  currency: string;
+  status: SettlementStatus;
+  revenueIds: string[];
+  splitDetails: SplitDetail[];
+  paymentInstructions: PaymentInstruction[];
+  approvalFlowId?: string;
+  budgetThreshold: number;
+  overBudget: boolean;
+  paymentInstructionId?: string;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SplitRule {
+  id: string;
+  ruleNo: string;
+  name: string;
+  description?: string;
+  businessLine: string;
+  effectiveStartDate: Date;
+  effectiveEndDate?: Date;
+  effectiveDate: Date;
+  expiryDate?: Date;
+  status: RuleStatus;
+  ratios: { [recipientId: string]: number };
+  recipients: {
+    recipientId: string;
+    recipientName: string;
+    recipientType: 'partner' | 'internal' | 'platform';
+    ratio: number;
+  }[];
+  version: number;
+  createdById: string;
+  createdBy: string;
+  approvalFlowId?: string;
+  approvedById?: string;
+  approvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SplitRuleHistory {
+  id: string;
+  ruleId: string;
+  version: number;
+  action: 'created' | 'updated' | 'activated' | 'deactivated' | 'approved';
+  oldRatios?: { [recipientId: string]: number };
+  newRatios?: { [recipientId: string]: number };
+  changedById: string;
+  changedBy: string;
+  changedAt: Date;
+  createdAt: Date;
+  changeReason?: string;
+  remark?: string;
 }

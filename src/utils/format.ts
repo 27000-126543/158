@@ -126,3 +126,48 @@ export const getStatusColor = <T extends string>(
   const option = options.find(o => o.value === value);
   return option?.color || 'default';
 };
+
+export const formatTurnoverRate = (rate: number): string => {
+  return `${rate.toFixed(1)}次`;
+};
+
+export const formatUnit = (unit: string): string => {
+  const unitMap: Record<string, string> = {
+    piece: '件',
+    set: '套',
+    box: '箱',
+    kg: '千克',
+    ton: '吨',
+    meter: '米',
+    square_meter: '平方米',
+    hour: '小时',
+    day: '天',
+    month: '月',
+  };
+  return unitMap[unit] || unit;
+};
+
+export const formatQuantity = (quantity: number, unit: string): string => {
+  return `${quantity.toLocaleString()} ${formatUnit(unit)}`;
+};
+
+export const formatBudget = (budget: number): string => {
+  return formatCurrency(budget);
+};
+
+export const generateRequirementNo = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `REQ-${year}${month}-${random}`;
+};
+
+export const formatApprovalStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: '待审批',
+    approved: '已通过',
+    rejected: '已驳回',
+  };
+  return statusMap[status] || status;
+};

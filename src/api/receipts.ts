@@ -1,5 +1,5 @@
 import type { Receipt, PaginatedResponse } from '@shared/types';
-import { get, post, put } from './client';
+import { get, post, put, del } from './client';
 import { mockReceipts, delay } from '../utils/mock';
 
 export interface ReceiptQueryParams {
@@ -109,31 +109,53 @@ export const startInspection = async (id: string): Promise<Receipt> => {
   }
 };
 
-export const acceptReceipt = async (id: string, data: { 
-  acceptedQuantity: number; 
-  rejectedQuantity: number; 
-  inspectionReport?: string 
-}): Promise<Receipt> => {
+export const acceptReceipt = async (id: string, inspectionReport?: string): Promise<Receipt> => {
   try {
-    return await post<Receipt>(`/receipts/${id}/accept`, data);
+    return await post<Receipt>(`/receipts/${id}/accept`, { inspectionReport });
   } catch {
     const receipt = mockReceipts.find(r => r.id === id);
     if (!receipt) throw new Error('入库单不存在');
     
-    let status: any = 'accepted';
-    if (data.rejectedQuantity > 0 && data.acceptedQuantity > 0) {
-      status = 'partial';
-    } else if (data.rejectedQuantity > 0 && data.acceptedQuantity === 0) {
-      status = 'rejected';
-    }
+    return delay({ 
+      ...receipt, 
+      inspectionReport,
+      status: 'accepted' 
+    });
+  }
+};
+
+export const rejectReceipt = async (id: string, inspectionReport: string, rejectedQuantity: number): Promise<Receipt> => {
+  try {
+    return await post<Receipt>(`/receipts/${id}/reject`, { inspectionReport, rejectedQuantity });
+  } catch {
+    const receipt = mockReceipts.find(r => r.id === id);
+    if (!receipt) throw new Error('入库单不存在');
     
     return delay({ 
       ...receipt, 
-      acceptedQuantity: data.acceptedQuantity,
-      rejectedQuantity: data.rejectedQuantity,
-      inspectionReport: data.inspectionReport,
-      status 
+      inspectionReport,
+      rejectedQuantity,
+      status: 'rejected' 
     });
+  }
+};
+
+export const deleteReceipt = async (id: string): Promise<void> => {
+  try {
+    await del<void>(`/receipts/${id}`);
+  } catch {
+    const index = mockReceipts.findIndex(r => r.id === id);
+    if (index === -1) throw new Error('入库单不存在');
+    mockReceipts.splice(index, 1);
+    return delay(void 0);
+  }
+};
+
+export const exportReceipts = async (params?: ReceiptQueryParams): Promise<Blob> => {
+  try {
+    return await get<Blob>('/receipts/export', { params, responseType: 'blob' });
+  } catch {
+    return delay(new Blob());
   }
 };
 
